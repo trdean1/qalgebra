@@ -1,0 +1,6 @@
+[package]
+name = "qalgebra"
+version = "0.1.0"
+authors = ["Tom Dean <trdean@stanford.edu>"]
+
+[dependencies]
