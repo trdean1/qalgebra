@@ -1,8 +1,11 @@
 #![feature(test)]
 extern crate test;
 
-pub mod quaternion;
-use quaternion::Quaternion;
+extern crate rug;
+use rug::{Assign,Integer};
+
+//pub mod quaternion;
+//use quaternion::Quaternion;
 use std::fmt;
 
 #[derive(Clone)]
@@ -78,7 +81,7 @@ impl IntPolynomial {
         None
     }
 
-    pub fn gradeschool_mul( self, rhs: IntPolynomial ) -> IntPolynomial {
+    pub fn gradeschool_mul( &self, rhs: &IntPolynomial ) -> IntPolynomial {
         let ldegree = self.degree();
         let rdegree = rhs.degree();
         let outdegree = ldegree + rdegree;
@@ -86,16 +89,16 @@ impl IntPolynomial {
         let ref large;
 
         if ldegree < rdegree {
-            small = &self;
-            large = &rhs;
+            small = self;
+            large = rhs;
         } else {
-            small = &rhs;
-            large = &self;
+            small = rhs;
+            large = self;
         }
 
         let mut result = IntPolynomial::zeros( outdegree );
         for (i, c) in small.into_iter().enumerate() {
-            //XXX Not sure if rust is smart enough to save memory of temp each loop?
+            //XXX Not sure if rust is smart enough to save memory of tmp each loop?
             let mut tmp = large.to_owned();
             tmp.scalar_multiply( c );
             tmp.xn_multiply( i );
@@ -104,7 +107,152 @@ impl IntPolynomial {
 
         result
     }
+
+    pub fn kronecker_mul ( &self, rhs: &IntPolynomial ) -> IntPolynomial {
+        let bits_per = self.kronecker_coeff_bits( rhs );
+
+        let degree = self.degree() + rhs.degree() + 2;
+        let bits_total = bits_per * (degree as u32);
+
+        let product;
+
+        println!("Total bits: {}", bits_total);
+        if bits_total <= 64 {
+            let packed_product = self.pack_small( bits_per ) * rhs.pack_small( bits_per );
+
+            product = IntPolynomial::unpack_small( packed_product, bits_per )
+        } else {
+            let packed_self = self.pack_rug( bits_per );
+            let packed_rhs = rhs.pack_rug( bits_per );
+            let packed_product_incomplete = &packed_self * &packed_rhs;
+            let mut packed_product = Integer::new();
+            packed_product.assign( packed_product_incomplete );
+
+            product = IntPolynomial::unpack_rug( packed_product, bits_per, Some(degree) );
+        }
+
+        return product;
+    }
+
+    /// Find the maximum number of bits each coefficient of the product of self and rhs
+    /// can contain
+    pub fn kronecker_coeff_bits( &self, rhs: &IntPolynomial ) -> u32 {
+        let mut largest_c = 0;
+        for c in self {
+            if c > largest_c {
+                largest_c = c;
+            }
+        }
+        for c in rhs {
+            if c > largest_c {
+                largest_c = c;
+            }
+        }
+
+        let deg_overhead = if self.degree() > rhs.degree() { 
+            fastlog2( self.degree() as u32 + 1 ) + 1
+        } else { 
+            fastlog2( rhs.degree() as u32 + 1 ) + 1
+        };
+
+        2 * (fastlog2( largest_c ) + 1 ) + deg_overhead
+    }
+
+    /// Pack a (small) polynomial into a 64-bit int by evaluating at 2^bits
+    pub fn pack_small( &self, bits: u32 ) -> u64 {
+        let len = self.degree() + 1;
+        assert!( bits * len as u32 <= 64 );
+
+        let mut result = 0;
+        for (idx, c) in self.into_iter().enumerate() {
+            let i = idx as u32;
+            let tmp = (c as u64) << (i*bits);
+            result |= tmp;
+        }
+
+        result
+    }
+
+    /// Same as above but uses rug library to pack arbitrary large polynomials
+    pub fn pack_rug( &self, bits: u32 ) -> Integer {
+        let mut result = Integer::new();
+
+        for i in (0..self.coefficients.len()).rev() {
+            result += self[i];
+            if i != 0 {
+                result <<= bits;
+            }
+        }
+
+        result
+    }
+
+    /// Unpack a 64-bit int into a (small) polynomial by assuming it was evaluated at
+    /// 2^bits_per
+    pub fn unpack_small( v: u64, bits_per: u32 ) -> IntPolynomial {
+        let max_coeffs = 64 / bits_per;
+        let mut coeffs = Vec::<u32>::with_capacity( max_coeffs as usize );
+        let mut vv = v;
+
+        let mask = u64::pow( 2, bits_per ) - 1;
+        for _ in 0 .. max_coeffs {
+            coeffs.push( (vv & mask) as u32 );
+            vv >>= bits_per; 
+            if vv == 0 {
+                break;
+            }
+        }
+
+        IntPolynomial {
+            coefficients: coeffs
+        }
+    }
+
+    /// Same as above but using rug
+    /// If we know the degree (we should if we are multiplying) then we can pass it in
+    /// to save time
+    pub fn unpack_rug( v: Integer, bits_per: u32, degree_maybe: Option<usize> ) -> IntPolynomial {
+        let mut coeffs = Vec::<u32>::new();
+        if degree_maybe.is_some() {
+            coeffs.reserve( degree_maybe.unwrap() + 1 );
+        }
+
+        let mut vv = Integer::new();
+        vv += v;
+
+        let mask = u32::pow( 2, bits_per ) - 1;
+
+        while vv > 0 {
+            let low = vv.to_u32_wrapping() & mask;
+            coeffs.push( low );
+            vv >>= bits_per;
+        }
+
+        IntPolynomial {
+            coefficients: coeffs
+        }
+    }
 }
+
+fn fastlog2( v: u32 ) -> u32 {
+    let mut res = 0;
+    let mut tmp = v;
+    let b = [0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000];
+    let s = [1, 2, 4, 8, 16];
+
+    for i in (0..5).rev() {
+        if (tmp & b[i]) != 0 {
+            tmp >>= s[i];
+            res |= s[i];
+        }
+    }
+
+    res
+}
+
+//////////////////////////////////////////////////////////////
+/// Operator Overloads
+//////////////////////////////////////////////////////////////
 
 impl fmt::Display for IntPolynomial { 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -264,6 +412,12 @@ impl<'a> Iterator for RefIntPolynomialIterator<'a> {
     }
 }
 
+impl<'a> ExactSizeIterator for RefIntPolynomialIterator<'a> {
+    fn len(&self) -> usize {
+        self.polynomial.degree() + 1
+    }
+}
+
 //////////////////////////////////////////////////////////////
 /// Tests
 //////////////////////////////////////////////////////////////
@@ -271,6 +425,7 @@ impl<'a> Iterator for RefIntPolynomialIterator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test::Bencher;
 
     #[test]
     fn poly_add() {
@@ -309,8 +464,52 @@ mod tests {
         let q = IntPolynomial::from_vec( &vec![2, 3] );
         let t = IntPolynomial::from_vec( &vec![2, 7, 12, 9] );
 
-        let r = p.gradeschool_mul( q );
+        let r = p.gradeschool_mul( &q );
 
         assert!( r == t );
+    }
+
+    #[test]
+    fn kronecker_sub_mul_small() {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3] );
+        let q = IntPolynomial::from_vec( &vec![2, 3] );
+        let t = IntPolynomial::from_vec( &vec![2, 7, 12, 9] );
+        
+        let r = p.kronecker_mul( &q ); 
+
+        assert!( r == t);
+    }
+
+    #[test]
+    fn kronecker_rug() {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3, 4, 5, 6] );
+        let q = IntPolynomial::from_vec( &vec![2, 3, 1234] );
+        let t = IntPolynomial::from_vec( &vec![2, 7, 1246, 2485, 3724, 4963, 6188, 7404] );
+        
+        let r = p.kronecker_mul( &q ); 
+
+        println!("{}", r);
+
+        assert!( r == t);
+    }
+
+    #[bench]
+    fn bench_gradeschool( b: &mut Bencher ) {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] );
+        let q = IntPolynomial::from_vec( &vec![2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 10, 11, 12] );
+
+        b.iter( || {
+            p.gradeschool_mul( &q ) 
+        });
+    }
+
+    #[bench]
+    fn bench_kronecker( b: &mut Bencher ) {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] );
+        let q = IntPolynomial::from_vec( &vec![2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 10, 11, 12] );
+
+        b.iter( || {
+            p.kronecker_mul( &q ) 
+        });
     }
 }
