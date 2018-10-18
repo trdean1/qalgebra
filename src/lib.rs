@@ -7,11 +7,11 @@ use std::fmt;
 
 #[derive(Clone)]
 pub struct IntPolynomial {
-    coefficients: Vec<i32>
+    coefficients: Vec<u32>
 }
 
 impl IntPolynomial {
-    pub fn from_vec(v: &Vec<i32>) -> IntPolynomial {
+    pub fn from_vec(v: &Vec<u32>) -> IntPolynomial {
         IntPolynomial { 
             coefficients : v.clone()
         }
@@ -46,7 +46,7 @@ impl IntPolynomial {
     }
 
     //Multiply all coefficients by c
-    pub fn scalar_multiply( &mut self, c: i32 ) {
+    pub fn scalar_multiply( &mut self, c: u32 ) {
         for i in 0..self.coefficients.len(){
             self.coefficients[i] *= c;
         }
@@ -114,17 +114,13 @@ impl fmt::Display for IntPolynomial {
             if idx == 0 {
                 s += &format!("{}", c);
             } else if idx >= 1 {
-                s += &format!("{} X", c.abs());
+                s += &format!("{} X", c);
             }
             if idx != 0 && idx >= 2 {
                 s += &format!("^{}", (idx as i64) );
             }
             if (idx as i64) < (self.coefficients.len() as i64) - 1 {
-                if self[idx+1] >= 0 {
-                    s += &format!(" + ");
-                } else {
-                    s += &format!(" - ");
-                }
+                s += &format!(" + ");
             }
         }
         write!(f, "{}", s)
@@ -132,15 +128,15 @@ impl fmt::Display for IntPolynomial {
 } 
 
 impl std::ops::Index<usize> for IntPolynomial {
-    type Output = i32;
+    type Output = u32;
 
-    fn index(&self, i: usize) -> &i32 {
+    fn index(&self, i: usize) -> &u32 {
         &self.coefficients[i]
     }
 }
 
 impl std::ops::IndexMut<usize> for IntPolynomial {
-    fn index_mut( &mut self, i: usize) -> &mut i32 {
+    fn index_mut( &mut self, i: usize) -> &mut u32 {
         &mut self.coefficients[i]
     }
 }
@@ -207,7 +203,7 @@ impl std::cmp::PartialEq for IntPolynomial {
 //////////////////////////////////////////////////////////////
 
 impl IntoIterator for IntPolynomial {
-    type Item = i32;
+    type Item = u32;
     type IntoIter = IntPolynomialIterator;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -219,7 +215,7 @@ impl IntoIterator for IntPolynomial {
 }
 
 impl<'a> IntoIterator for &'a IntPolynomial {
-    type Item = i32;
+    type Item = u32;
     type IntoIter = RefIntPolynomialIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -241,9 +237,9 @@ pub struct RefIntPolynomialIterator<'a> {
 }
 
 impl Iterator for IntPolynomialIterator {
-    type Item = i32;
+    type Item = u32;
 
-    fn next( &mut self ) -> Option<i32> {
+    fn next( &mut self ) -> Option<u32> {
         if self.index < self.polynomial.coefficients.len() {
             let result = self.polynomial.coefficients[self.index];
             self.index += 1;
@@ -255,9 +251,9 @@ impl Iterator for IntPolynomialIterator {
 }
 
 impl<'a> Iterator for RefIntPolynomialIterator<'a> {
-    type Item = i32;
+    type Item = u32;
 
-    fn next( &mut self ) -> Option<i32> {
+    fn next( &mut self ) -> Option<u32> {
         if self.index < self.polynomial.coefficients.len() {
             let result = self.polynomial.coefficients[self.index];
             self.index += 1;
