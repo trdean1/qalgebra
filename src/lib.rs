@@ -44,6 +44,66 @@ impl IntPolynomial {
 
         }
     }
+
+    //Multiply all coefficients by c
+    pub fn scalar_multiply( &mut self, c: i32 ) {
+        for i in 0..self.coefficients.len(){
+            self.coefficients[i] *= c;
+        }
+    }
+
+    //Multiply by x^n...shift coefficeints up n slots
+    pub fn xn_multiply( &mut self, n: usize ) {
+        for _ in 0..n {
+            self.coefficients.insert( 0, 0 );
+        }
+    }
+
+    //Divide by x^n...shift down n slots and return remainder if not zero
+    pub fn xn_divide( &mut self, n: usize) -> Option<IntPolynomial> {
+        let mut remainder = vec![0; n];
+        let mut has_rem = false;
+        for i in 0..n {
+            remainder[i] = self.coefficients.remove(0);
+            if remainder[i] != 0 { has_rem = true; } //Save us iterating again
+        }
+
+        if has_rem {
+            let mut p = IntPolynomial::from_vec( &remainder );
+            p.trim();
+
+            return Some(p);
+        }
+
+        None
+    }
+
+    pub fn gradeschool_mul( self, rhs: IntPolynomial ) -> IntPolynomial {
+        let ldegree = self.degree();
+        let rdegree = rhs.degree();
+        let outdegree = ldegree + rdegree;
+        let ref small;
+        let ref large;
+
+        if ldegree < rdegree {
+            small = &self;
+            large = &rhs;
+        } else {
+            small = &rhs;
+            large = &self;
+        }
+
+        let mut result = IntPolynomial::zeros( outdegree );
+        for (i, c) in small.into_iter().enumerate() {
+            //XXX Not sure if rust is smart enough to save memory of temp each loop?
+            let mut tmp = large.to_owned();
+            tmp.scalar_multiply( c );
+            tmp.xn_multiply( i );
+            result += tmp;
+        }
+
+        result
+    }
 }
 
 impl fmt::Display for IntPolynomial { 
@@ -57,7 +117,7 @@ impl fmt::Display for IntPolynomial {
                 s += &format!("{} X", c.abs());
             }
             if idx != 0 && idx >= 2 {
-                s += &format!("^{}", (idx as i64) - 1);
+                s += &format!("^{}", (idx as i64) );
             }
             if (idx as i64) < (self.coefficients.len() as i64) - 1 {
                 if self[idx+1] >= 0 {
@@ -135,8 +195,10 @@ impl std::cmp::PartialEq for IntPolynomial {
                 return false;
             }
         }
-
         true
+        
+        //Can also do this in one line, but this is less efficient
+        //self.into_iter().zip(other).all( |(x,y)| x == y )
     }
 }
 
@@ -156,8 +218,25 @@ impl IntoIterator for IntPolynomial {
     }
 }
 
+impl<'a> IntoIterator for &'a IntPolynomial {
+    type Item = i32;
+    type IntoIter = RefIntPolynomialIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        RefIntPolynomialIterator {
+            polynomial: self,
+            index: 0,
+        }
+    }
+}
+
 pub struct IntPolynomialIterator {
     polynomial: IntPolynomial,
+    index: usize,
+}
+
+pub struct RefIntPolynomialIterator<'a> {
+    polynomial: &'a IntPolynomial,
     index: usize,
 }
 
@@ -175,6 +254,24 @@ impl Iterator for IntPolynomialIterator {
     }
 }
 
+impl<'a> Iterator for RefIntPolynomialIterator<'a> {
+    type Item = i32;
+
+    fn next( &mut self ) -> Option<i32> {
+        if self.index < self.polynomial.coefficients.len() {
+            let result = self.polynomial.coefficients[self.index];
+            self.index += 1;
+            return Some(result);
+        } else {
+            return None;
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////
+/// Tests
+//////////////////////////////////////////////////////////////
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,5 +288,33 @@ mod tests {
 
         p = p + q;
         assert!( p == t2 );
+    }
+
+    #[test]
+    fn scalar_ops() {
+        let mut p = IntPolynomial::from_vec( &vec![0, 1, 2, 3] );
+        let t1 = IntPolynomial::from_vec( &vec![1, 2, 3] );
+        let t2 = IntPolynomial::from_vec( &vec![2, 4, 6] );
+        let t3 = IntPolynomial::from_vec( &vec![0, 0, 2, 4, 6] );
+
+        assert!( p.xn_divide( 1 ).is_none() );
+        assert!( p == t1 );
+
+        p.scalar_multiply( 2 );
+        assert!( p == t2 );
+
+        p.xn_multiply( 2 );
+        assert!( p == t3 );
+    }
+
+    #[test]
+    fn gradeschool_mul() {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3] );
+        let q = IntPolynomial::from_vec( &vec![2, 3] );
+        let t = IntPolynomial::from_vec( &vec![2, 7, 12, 9] );
+
+        let r = p.gradeschool_mul( q );
+
+        assert!( r == t );
     }
 }
