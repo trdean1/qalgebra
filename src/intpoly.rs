@@ -1,75 +1,51 @@
 #![feature(test)]
 extern crate test;
 
-//extern crate rug;
-//use rug::{Assign,Integer};
+extern crate rug;
+use rug::{Assign,Integer};
 
 //pub mod quaternion;
 //use quaternion::Quaternion;
 use std::fmt;
-use std::ops::*;
-
-pub trait Numeral: Copy + Clone + Default + PartialEq + 
-                   Add + AddAssign + Mul + MulAssign + 
-                   std::fmt::Display {}
-impl<T> Numeral for T where T: Copy + Clone + Default + PartialEq + 
-                               Add + AddAssign + Mul + MulAssign + 
-                               std::fmt::Display {}
 
 #[derive(Clone)]
-pub struct Polynomial<T: Numeral> {
-    coefficients: Vec<T>
+pub struct IntPolynomial {
+    coefficients: Vec<u32>
 }
 
-impl<T> Polynomial<T> where T: Numeral {
+impl IntPolynomial {
     /// Create polynomial from vector.  v[0] is degree zero term
-    pub fn from_vec(v: &Vec<T>) -> Polynomial<T> {
-        Polynomial { 
+    pub fn from_vec(v: &Vec<u32>) -> IntPolynomial {
+        IntPolynomial { 
             coefficients : v.clone()
         }
     }
 
-
     /// Create a polynomial with an empty coefficient vector that has
     /// space allocated for n coefficients
-    pub fn with_capacity( n: usize ) -> Polynomial<T> {
+    pub fn with_capacity( n: usize ) -> IntPolynomial {
         let v = Vec::with_capacity( n );
-        Polynomial {
+        IntPolynomial {
             coefficients : v
         }
     }
 
-    
     /// Create a polynomial with all n zero coefficients
-    /// XXX: This assumes T::default is the additive identity.  Is this smart?
-    pub fn zeros( n: usize ) -> Polynomial<T> {
-        let v = vec![T::default(); n];
-        Polynomial {
+    pub fn zeros( n: usize ) -> IntPolynomial {
+        let v = vec![0; n];
+        IntPolynomial {
             coefficients : v
         }
     }
-
 
     /// Return degree --- length of coefficient array minus one
     pub fn degree( &self ) -> usize {
         self.coefficients.len() - 1
     }
 
-    /// A 'smart' attempt at a deep copy.  Will not allocate memory
-    /// if self has enough memory to copy
-    pub fn copy_from( &mut self, other: &Polynomial<T> ) {
-        self.coefficients.reserve( other.degree() + 1 );
-        self.coefficients.clear();
-
-        for c in other {
-            self.coefficients.push( c );
-        }
-    }
-
     /// Remove trailing zero terms
-    /// XXX: Again assuming default is 0
     fn trim( &mut self ) {
-        while self.coefficients[ self.degree() ] == T::default() {
+        while self.coefficients[ self.degree() ] == 0 {
             if self.coefficients.pop().is_none() {
                 break;
             }
@@ -77,12 +53,8 @@ impl<T> Polynomial<T> where T: Numeral {
         }
     }
 
-    //////////////////////////////////////////////////////////////
-    // Arithmetic Stuff
-    //////////////////////////////////////////////////////////////
-
     /// Multiply all coefficients by c
-    pub fn scalar_multiply( &mut self, c: T ) {
+    pub fn scalar_multiply( &mut self, c: u32 ) {
         for i in 0..self.coefficients.len(){
             self.coefficients[i] *= c;
         }
@@ -91,21 +63,21 @@ impl<T> Polynomial<T> where T: Numeral {
     /// Multiply by x^n...shift coefficeints up n slots
     pub fn xn_multiply( &mut self, n: usize ) {
         for _ in 0..n {
-            self.coefficients.insert( 0, T::default() );
+            self.coefficients.insert( 0, 0 );
         }
     }
 
     /// Divide by x^n...shift down n slots and return remainder if not zero
-    pub fn xn_divide( &mut self, n: usize) -> Option<Polynomial<T>> {
-        let mut remainder = vec![T::default(); n];
+    pub fn xn_divide( &mut self, n: usize) -> Option<IntPolynomial> {
+        let mut remainder = vec![0; n];
         let mut has_rem = false;
         for i in 0..n {
             remainder[i] = self.coefficients.remove(0);
-            if remainder[i] != T::default() { has_rem = true; } //Save us iterating again
+            if remainder[i] != 0 { has_rem = true; } //Save us iterating again
         }
 
         if has_rem {
-            let mut p = Polynomial::<T>::from_vec( &remainder );
+            let mut p = IntPolynomial::from_vec( &remainder );
             p.trim();
 
             return Some(p);
@@ -115,28 +87,24 @@ impl<T> Polynomial<T> where T: Numeral {
     }
 
     /// Evaluate at x using Horner's method
-    pub fn horner_eval( &self, x: T ) -> T {
-        let mut res = T::default();
+    pub fn horner_eval( &self, x: u32 ) -> u32 {
+        let mut res = 0;
 
-        //XXX: Need to figure out how to specialize for floats 
-        //if is_x86_feature_detected!("fma") && constrain!( T: Mul_Add ) {
-        //    for c in self {
-        //        res.mul_add( x, c );
-        //    }
+        // FMA is slower if we don't have floats or aren't doing SIMD
+        //if is_x86_feature_detected!("fma") {
+        //    res = self.horner_eval_fma( x );
         //} else {
-            for c in self {
-                res *= x;
-                res += c;
-            }
-        //}
+
+        for c in self {
+            res = res * x + c;
+        }
 
         res
     }
 
-    
     /// multiply self by rhs returning a new polynomial.  Uses gradeschool multiplication
     /// which is slow unless degree is really small
-    pub fn gradeschool_mul( &self, rhs: &Polynomial<T> ) -> Polynomial<T> {
+    pub fn gradeschool_mul( &self, rhs: &IntPolynomial ) -> IntPolynomial {
         let ldegree = self.degree();
         let rdegree = rhs.degree();
         let outdegree = ldegree + rdegree;
@@ -151,19 +119,18 @@ impl<T> Polynomial<T> where T: Numeral {
             large = self;
         }
 
-        let mut result = Polynomial::<T>::zeros( outdegree );
-        let mut tmp = Polynomial::<T>::with_capacity( large.degree()+1 );
+        let mut result = IntPolynomial::zeros( outdegree );
         for (i, c) in small.into_iter().enumerate() {
-            tmp.copy_from( large );
+            //XXX Not sure if rust is smart enough to save memory of tmp each loop?
+            let mut tmp = large.to_owned();
             tmp.scalar_multiply( c );
             tmp.xn_multiply( i );
-            result += tmp.clone(); //XXX: Hopefully this doesn't do anything memory heavy?
+            result += tmp;
         }
 
         result
     }
 
-    /*
     /// Multiplies self by rhs creating a new polynomial.  Uses Kronecker substitution.
     /// Calls rug crate (which then call GMP) for arbitrary precision integer multipication
     pub fn kronecker_mul ( &self, rhs: &IntPolynomial ) -> IntPolynomial {
@@ -290,13 +257,30 @@ impl<T> Polynomial<T> where T: Numeral {
             coefficients: coeffs
         }
     }
-    */
+}
+
+/// An O(log n) algorithm to give floor(log v) for a 32-bit number
+fn fastlog2( v: u32 ) -> u32 {
+    let mut res = 0;
+    let mut tmp = v;
+    let b = [0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000];
+    let s = [1, 2, 4, 8, 16];
+
+    for i in (0..5).rev() {
+        if (tmp & b[i]) != 0 {
+            tmp >>= s[i];
+            res |= s[i];
+        }
+    }
+
+    res
 }
 
 //////////////////////////////////////////////////////////////
-// Operator Overloads
+/// Operator Overloads
 //////////////////////////////////////////////////////////////
-impl<T> fmt::Display for Polynomial<T> where T: Numeral{ 
+
+impl fmt::Display for IntPolynomial { 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
 
@@ -317,22 +301,22 @@ impl<T> fmt::Display for Polynomial<T> where T: Numeral{
     }
 } 
 
-impl<T> std::ops::Index<usize> for Polynomial<T> where T: Numeral {
-    type Output = T;
+impl std::ops::Index<usize> for IntPolynomial {
+    type Output = u32;
 
-    fn index(&self, i: usize) -> &T {
+    fn index(&self, i: usize) -> &u32 {
         &self.coefficients[i]
     }
 }
 
-impl<T> std::ops::IndexMut<usize> for Polynomial<T> where T: Numeral {
-    fn index_mut( &mut self, i: usize) -> &mut T {
+impl std::ops::IndexMut<usize> for IntPolynomial {
+    fn index_mut( &mut self, i: usize) -> &mut u32 {
         &mut self.coefficients[i]
     }
 }
 
-impl<T> std::ops::AddAssign for Polynomial<T> where T: Numeral {
-    fn add_assign( &mut self, rhs: Polynomial<T> ) {
+impl std::ops::AddAssign for IntPolynomial {
+    fn add_assign( &mut self, rhs: IntPolynomial ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {
                 self[idx] += e;
@@ -345,17 +329,17 @@ impl<T> std::ops::AddAssign for Polynomial<T> where T: Numeral {
     }
 }
 
-impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
-    type Output = Polynomial<T>;
+impl std::ops::Add for IntPolynomial {
+    type Output = IntPolynomial;
 
-    fn add ( self, rhs: Polynomial<T> ) -> Polynomial<T> {
+    fn add ( self, rhs: IntPolynomial ) -> IntPolynomial {
         let maxdeg = if self.degree() > rhs.degree() { 
             self.degree() + 1
         } else {
             rhs.degree() + 1
         };
 
-        let mut result = Polynomial::<T>::zeros( maxdeg );
+        let mut result = IntPolynomial::zeros( maxdeg );
 
         for i in 0 .. maxdeg {
             if i < self.degree() + 1 {
@@ -370,8 +354,8 @@ impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
     }
 }
 
-impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
-    fn eq( &self, other: &Polynomial<T>) -> bool {
+impl std::cmp::PartialEq for IntPolynomial {
+    fn eq( &self, other: &IntPolynomial) -> bool {
         if self.degree() != other.degree() {
             return false;
         }
@@ -389,46 +373,47 @@ impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
 }
 
 //////////////////////////////////////////////////////////////
-// Iterator Stuff
+/// Iterator Stuff
 //////////////////////////////////////////////////////////////
-impl<T> IntoIterator for Polynomial<T> where T: Numeral {
-    type Item = T;
-    type IntoIter = PolynomialIterator<T>;
+
+impl IntoIterator for IntPolynomial {
+    type Item = u32;
+    type IntoIter = IntPolynomialIterator;
 
     fn into_iter(self) -> Self::IntoIter {
-        PolynomialIterator {
+        IntPolynomialIterator {
             polynomial: self,
             index: 0,
         }
     }
 }
 
-impl<'a, T> IntoIterator for &'a Polynomial<T> where T: 'a + Numeral {
-    type Item = T;
-    type IntoIter = RefPolynomialIterator<'a, T>;
+impl<'a> IntoIterator for &'a IntPolynomial {
+    type Item = u32;
+    type IntoIter = RefIntPolynomialIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        RefPolynomialIterator {
+        RefIntPolynomialIterator {
             polynomial: self,
             index: 0,
         }
     }
 }
 
-pub struct PolynomialIterator<T: Numeral>  {
-    polynomial: Polynomial<T>,
+pub struct IntPolynomialIterator {
+    polynomial: IntPolynomial,
     index: usize,
 }
 
-pub struct RefPolynomialIterator<'a, T: 'a + Numeral> {
-    polynomial: &'a Polynomial<T>,
+pub struct RefIntPolynomialIterator<'a> {
+    polynomial: &'a IntPolynomial,
     index: usize,
 }
 
-impl<T> Iterator for PolynomialIterator<T> where T: Numeral {
-    type Item = T;
+impl Iterator for IntPolynomialIterator {
+    type Item = u32;
 
-    fn next( &mut self ) -> Option<T> {
+    fn next( &mut self ) -> Option<u32> {
         if self.index < self.polynomial.coefficients.len() {
             let result = self.polynomial.coefficients[self.index];
             self.index += 1;
@@ -439,10 +424,10 @@ impl<T> Iterator for PolynomialIterator<T> where T: Numeral {
     }
 }
 
-impl<'a, T> Iterator for RefPolynomialIterator<'a, T> where T: 'a + Numeral {
-    type Item = T;
+impl<'a> Iterator for RefIntPolynomialIterator<'a> {
+    type Item = u32;
 
-    fn next( &mut self ) -> Option<T> {
+    fn next( &mut self ) -> Option<u32> {
         if self.index < self.polynomial.coefficients.len() {
             let result = self.polynomial.coefficients[self.index];
             self.index += 1;
@@ -453,31 +438,33 @@ impl<'a, T> Iterator for RefPolynomialIterator<'a, T> where T: 'a + Numeral {
     }
 }
 
-impl<T> ExactSizeIterator for PolynomialIterator<T> where T: Numeral {
+impl ExactSizeIterator for IntPolynomialIterator {
     fn len(&self) -> usize {
         self.polynomial.degree() + 1
     }
 }
 
-impl<'a, T> ExactSizeIterator for RefPolynomialIterator<'a, T> where T: 'a + Numeral {
+impl<'a> ExactSizeIterator for RefIntPolynomialIterator<'a> {
     fn len(&self) -> usize {
         self.polynomial.degree() + 1
     }
 }
+
 //////////////////////////////////////////////////////////////
-// Tests
+/// Tests
 //////////////////////////////////////////////////////////////
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test::Bencher;
     
     #[test]
     fn poly_add() {
-        let mut p = Polynomial::<i32>::from_vec( &vec![1, 2, 3, 4] );
-        let q = Polynomial::from_vec( &vec![4i32, 3, 2, 1, 2] );
-        let t1 = Polynomial::from_vec( &vec![5i32, 5, 5, 5, 2] );
-        let t2 = Polynomial::from_vec( &vec![9i32, 8, 7, 6, 4] );
+        let mut p = IntPolynomial::from_vec( &vec![1, 2, 3, 4] );
+        let q = IntPolynomial::from_vec( &vec![4, 3, 2, 1, 2] );
+        let t1 = IntPolynomial::from_vec( &vec![5, 5, 5, 5, 2] );
+        let t2 = IntPolynomial::from_vec( &vec![9, 8, 7, 6, 4] );
 
         p += q.clone();
         assert!( p == t1 );
@@ -488,10 +475,10 @@ mod tests {
 
     #[test]
     fn scalar_ops() {
-        let mut p = Polynomial::from_vec( &vec![0i32, 1, 2, 3] );
-        let t1 = Polynomial::from_vec( &vec![1i32, 2, 3] );
-        let t2 = Polynomial::from_vec( &vec![2i32, 4, 6] );
-        let t3 = Polynomial::from_vec( &vec![0i32, 0, 2, 4, 6] );
+        let mut p = IntPolynomial::from_vec( &vec![0, 1, 2, 3] );
+        let t1 = IntPolynomial::from_vec( &vec![1, 2, 3] );
+        let t2 = IntPolynomial::from_vec( &vec![2, 4, 6] );
+        let t3 = IntPolynomial::from_vec( &vec![0, 0, 2, 4, 6] );
 
         assert!( p.xn_divide( 1 ).is_none() );
         assert!( p == t1 );
@@ -504,8 +491,43 @@ mod tests {
     }
 
     #[test]
+    fn gradeschool_mul() {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3] );
+        let q = IntPolynomial::from_vec( &vec![2, 3] );
+        let t = IntPolynomial::from_vec( &vec![2, 7, 12, 9] );
+
+        let r = p.gradeschool_mul( &q );
+
+        assert!( r == t );
+    }
+
+    #[test]
+    fn kronecker_sub_mul_small() {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3] );
+        let q = IntPolynomial::from_vec( &vec![2, 3] );
+        let t = IntPolynomial::from_vec( &vec![2, 7, 12, 9] );
+        
+        let r = p.kronecker_mul( &q ); 
+
+        assert!( r == t);
+    }
+
+    #[test]
+    fn kronecker_rug() {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3, 4, 5, 6] );
+        let q = IntPolynomial::from_vec( &vec![2, 3, 1234] );
+        let t = IntPolynomial::from_vec( &vec![2, 7, 1246, 2485, 3724, 4963, 6188, 7404] );
+        
+        let r = p.kronecker_mul( &q ); 
+
+        println!("{}", r);
+
+        assert!( r == t);
+    }
+
+    #[test]
     fn horner_eval() {
-        let p = Polynomial::from_vec( &vec![1i32, 2, 3, 4, 5, 6] );
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3, 4, 5, 6] );
         let p1 = p.horner_eval( 1 );
         let p2 = p.horner_eval( 2 );
         let p3 = p.horner_eval( 10 );
@@ -513,17 +535,29 @@ mod tests {
         assert!( p1 == 21 );
         assert!( p2 == 120 );
         assert!( p3 == 123456 );
-    } 
-
-    #[test]
-    fn gradeschool_mul() {
-        let p = Polynomial::from_vec( &vec![1i32, 2, 3] );
-        let q = Polynomial::from_vec( &vec![2i32, 3] );
-        let t = Polynomial::from_vec( &vec![2i32, 7, 12, 9] );
-
-        let r = p.gradeschool_mul( &q );
-
-        assert!( r == t );
     }
 
+    //////////////////////////////////////////////////////////////
+    /// Benchmarks 
+    //////////////////////////////////////////////////////////////
+
+    #[bench]
+    fn bench_gradeschool( b: &mut Bencher ) {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] );
+        let q = IntPolynomial::from_vec( &vec![2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 10, 11, 12] );
+
+        b.iter( || {
+            p.gradeschool_mul( &q ) 
+        });
+    }
+
+    #[bench]
+    fn bench_kronecker( b: &mut Bencher ) {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] );
+        let q = IntPolynomial::from_vec( &vec![2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 10, 11, 12] );
+
+        b.iter( || {
+            p.kronecker_mul( &q ) 
+        });
+    }
 }
