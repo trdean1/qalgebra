@@ -14,12 +14,15 @@ pub struct IntPolynomial {
 }
 
 impl IntPolynomial {
+    /// Create polynomial from vector.  v[0] is degree zero term
     pub fn from_vec(v: &Vec<u32>) -> IntPolynomial {
         IntPolynomial { 
             coefficients : v.clone()
         }
     }
 
+    /// Create a polynomial with an empty coefficient vector that has
+    /// space allocated for n coefficients
     pub fn with_capacity( n: usize ) -> IntPolynomial {
         let v = Vec::with_capacity( n );
         IntPolynomial {
@@ -27,6 +30,7 @@ impl IntPolynomial {
         }
     }
 
+    /// Create a polynomial with all n zero coefficients
     pub fn zeros( n: usize ) -> IntPolynomial {
         let v = vec![0; n];
         IntPolynomial {
@@ -34,6 +38,7 @@ impl IntPolynomial {
         }
     }
 
+    /// Return degree --- length of coefficient array minus one
     pub fn degree( &self ) -> usize {
         self.coefficients.len() - 1
     }
@@ -48,21 +53,21 @@ impl IntPolynomial {
         }
     }
 
-    //Multiply all coefficients by c
+    /// Multiply all coefficients by c
     pub fn scalar_multiply( &mut self, c: u32 ) {
         for i in 0..self.coefficients.len(){
             self.coefficients[i] *= c;
         }
     }
 
-    //Multiply by x^n...shift coefficeints up n slots
+    /// Multiply by x^n...shift coefficeints up n slots
     pub fn xn_multiply( &mut self, n: usize ) {
         for _ in 0..n {
             self.coefficients.insert( 0, 0 );
         }
     }
 
-    //Divide by x^n...shift down n slots and return remainder if not zero
+    /// Divide by x^n...shift down n slots and return remainder if not zero
     pub fn xn_divide( &mut self, n: usize) -> Option<IntPolynomial> {
         let mut remainder = vec![0; n];
         let mut has_rem = false;
@@ -81,6 +86,24 @@ impl IntPolynomial {
         None
     }
 
+    /// Evaluate at x using Horner's method 
+    pub fn horner_eval( &self, x: u32 ) -> u32 {
+        let mut res = 0;
+
+        // FMA is slower if we don't have floats or aren't doing SIMD
+        //if is_x86_feature_detected!("fma") {
+        //    res = self.horner_eval_fma( x );
+        //} else {
+
+        for c in self {
+            res = res * x + c;
+        }
+
+        res
+    }
+
+    /// multiply self by rhs returning a new polynomial.  Uses gradeschool multiplication
+    /// which is slow unless degree is really small
     pub fn gradeschool_mul( &self, rhs: &IntPolynomial ) -> IntPolynomial {
         let ldegree = self.degree();
         let rdegree = rhs.degree();
@@ -108,6 +131,8 @@ impl IntPolynomial {
         result
     }
 
+    /// Multiplies self by rhs creating a new polynomial.  Uses Kronecker substitution.
+    /// Calls rug crate (which then call GMP) for arbitrary precision integer multipication
     pub fn kronecker_mul ( &self, rhs: &IntPolynomial ) -> IntPolynomial {
         let bits_per = self.kronecker_coeff_bits( rhs );
 
@@ -234,6 +259,7 @@ impl IntPolynomial {
     }
 }
 
+/// An O(log n) algorithm to give floor(log v) for a 32-bit number
 fn fastlog2( v: u32 ) -> u32 {
     let mut res = 0;
     let mut tmp = v;
@@ -412,6 +438,12 @@ impl<'a> Iterator for RefIntPolynomialIterator<'a> {
     }
 }
 
+impl ExactSizeIterator for IntPolynomialIterator {
+    fn len(&self) -> usize {
+        self.polynomial.degree() + 1
+    }
+}
+
 impl<'a> ExactSizeIterator for RefIntPolynomialIterator<'a> {
     fn len(&self) -> usize {
         self.polynomial.degree() + 1
@@ -426,7 +458,7 @@ impl<'a> ExactSizeIterator for RefIntPolynomialIterator<'a> {
 mod tests {
     use super::*;
     use test::Bencher;
-
+    
     #[test]
     fn poly_add() {
         let mut p = IntPolynomial::from_vec( &vec![1, 2, 3, 4] );
@@ -492,6 +524,22 @@ mod tests {
 
         assert!( r == t);
     }
+
+    #[test]
+    fn horner_eval() {
+        let p = IntPolynomial::from_vec( &vec![1, 2, 3, 4, 5, 6] );
+        let p1 = p.horner_eval( 1 );
+        let p2 = p.horner_eval( 2 );
+        let p3 = p.horner_eval( 10 );
+
+        assert!( p1 == 21 );
+        assert!( p2 == 120 );
+        assert!( p3 == 123456 );
+    }
+
+    //////////////////////////////////////////////////////////////
+    /// Benchmarks 
+    //////////////////////////////////////////////////////////////
 
     #[bench]
     fn bench_gradeschool( b: &mut Bencher ) {
