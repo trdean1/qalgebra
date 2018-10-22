@@ -1,3 +1,4 @@
+#![feature(specialization)]
 #![feature(test)]
 extern crate test;
 
@@ -9,11 +10,11 @@ extern crate test;
 use std::fmt;
 use std::ops::*;
 
-pub trait Numeral: Copy + Clone + Default + PartialEq + 
-                   Add + AddAssign + Mul + MulAssign + 
+pub trait Numeral: Copy + Clone + Default + PartialEq +  
+                   Add + AddAssign + Mul + MulAssign + SubAssign + 
                    std::fmt::Display {}
 impl<T> Numeral for T where T: Copy + Clone + Default + PartialEq + 
-                               Add + AddAssign + Mul + MulAssign + 
+                               Add + AddAssign + Mul + MulAssign + SubAssign +
                                std::fmt::Display {}
 
 #[derive(Clone)]
@@ -77,6 +78,15 @@ impl<T> Polynomial<T> where T: Numeral {
         }
     }
 
+    /// Split at index n.  If n > degree, upper part is None, lower is unchanged
+    //fn split( &self, n: usize ) ->  ( Some(Polynomial<T>), Polynomial<T> ) {
+    //  if n > self.degree() {
+    //      let mut copy = Polynomial::<T>::with_capacity( self.degree() );
+    //      copy.copy_from( self );
+    //      return (None, copy );
+    //  }
+    //}
+
     //////////////////////////////////////////////////////////////
     // Arithmetic Stuff
     //////////////////////////////////////////////////////////////
@@ -113,26 +123,6 @@ impl<T> Polynomial<T> where T: Numeral {
 
         None
     }
-
-    /// Evaluate at x using Horner's method
-    pub fn horner_eval( &self, x: T ) -> T {
-        let mut res = T::default();
-
-        //XXX: Need to figure out how to specialize for floats 
-        //if is_x86_feature_detected!("fma") && constrain!( T: Mul_Add ) {
-        //    for c in self {
-        //        res.mul_add( x, c );
-        //    }
-        //} else {
-            for c in self {
-                res *= x;
-                res += c;
-            }
-        //}
-
-        res
-    }
-
     
     /// multiply self by rhs returning a new polynomial.  Uses gradeschool multiplication
     /// which is slow unless degree is really small
@@ -163,141 +153,97 @@ impl<T> Polynomial<T> where T: Numeral {
         result
     }
 
-    /*
-    /// Multiplies self by rhs creating a new polynomial.  Uses Kronecker substitution.
-    /// Calls rug crate (which then call GMP) for arbitrary precision integer multipication
-    pub fn kronecker_mul ( &self, rhs: &IntPolynomial ) -> IntPolynomial {
-        let bits_per = self.kronecker_coeff_bits( rhs );
-
-        let degree = self.degree() + rhs.degree() + 2;
-        let bits_total = bits_per * (degree as u32);
-
-        let product;
-
-        println!("Total bits: {}", bits_total);
-        if bits_total <= 64 {
-            let packed_product = self.pack_small( bits_per ) * rhs.pack_small( bits_per );
-
-            product = IntPolynomial::unpack_small( packed_product, bits_per )
-        } else {
-            let packed_self = self.pack_rug( bits_per );
-            let packed_rhs = rhs.pack_rug( bits_per );
-            let packed_product_incomplete = &packed_self * &packed_rhs;
-            let mut packed_product = Integer::new();
-            packed_product.assign( packed_product_incomplete );
-
-            product = IntPolynomial::unpack_rug( packed_product, bits_per, Some(degree) );
-        }
-
-        return product;
-    }
-
-    /// Find the maximum number of bits each coefficient of the product of self and rhs
-    /// can contain
-    pub fn kronecker_coeff_bits( &self, rhs: &IntPolynomial ) -> u32 {
-        let mut largest_c = 0;
-        for c in self {
-            if c > largest_c {
-                largest_c = c;
-            }
-        }
-        for c in rhs {
-            if c > largest_c {
-                largest_c = c;
-            }
-        }
-
-        let deg_overhead = if self.degree() > rhs.degree() { 
-            fastlog2( self.degree() as u32 + 1 ) + 1
-        } else { 
-            fastlog2( rhs.degree() as u32 + 1 ) + 1
-        };
-
-        2 * (fastlog2( largest_c ) + 1 ) + deg_overhead
-    }
-
-    /// Pack a (small) polynomial into a 64-bit int by evaluating at 2^bits
-    pub fn pack_small( &self, bits: u32 ) -> u64 {
-        let len = self.degree() + 1;
-        assert!( bits * len as u32 <= 64 );
-
-        let mut result = 0;
-        for (idx, c) in self.into_iter().enumerate() {
-            let i = idx as u32;
-            let tmp = (c as u64) << (i*bits);
-            result |= tmp;
-        }
-
-        result
-    }
-
-    /// Same as above but uses rug library to pack arbitrary large polynomials
-    pub fn pack_rug( &self, bits: u32 ) -> Integer {
-        let mut result = Integer::new();
-
-        for i in (0..self.coefficients.len()).rev() {
-            result += self[i];
-            if i != 0 {
-                result <<= bits;
-            }
-        }
-
-        result
-    }
-
-    /// Unpack a 64-bit int into a (small) polynomial by assuming it was evaluated at
-    /// 2^bits_per
-    pub fn unpack_small( v: u64, bits_per: u32 ) -> IntPolynomial {
-        let max_coeffs = 64 / bits_per;
-        let mut coeffs = Vec::<u32>::with_capacity( max_coeffs as usize );
-        let mut vv = v;
-
-        let mask = u64::pow( 2, bits_per ) - 1;
-        for _ in 0 .. max_coeffs {
-            coeffs.push( (vv & mask) as u32 );
-            vv >>= bits_per; 
-            if vv == 0 {
-                break;
-            }
-        }
-
-        IntPolynomial {
-            coefficients: coeffs
-        }
-    }
-
-    /// Same as above but using rug
-    /// If we know the degree (we should if we are multiplying) then we can pass it in
-    /// to save time
-    pub fn unpack_rug( v: Integer, bits_per: u32, degree_maybe: Option<usize> ) -> IntPolynomial {
-        let mut coeffs = Vec::<u32>::new();
-        if degree_maybe.is_some() {
-            coeffs.reserve( degree_maybe.unwrap() + 1 );
-        }
-
-        let mut vv = Integer::new();
-        vv += v;
-
-        let mask = u32::pow( 2, bits_per ) - 1;
-
-        while vv > 0 {
-            let low = vv.to_u32_wrapping() & mask;
-            coeffs.push( low );
-            vv >>= bits_per;
-        }
-
-        IntPolynomial {
-            coefficients: coeffs
-        }
-    }
-    */
+    //pub fn karatsuba_recurse( &self, rhs Polynomial<T> ) -> Polynomial<T> {
+        //If degree_self < base_case || degree_rhs < base_case: //Perhaps some logic for l+r?
+        //  return gradeschool_mul
+        //
+        //m = floor(max_degree/2)
+        //high_self, low_self = split at m
+        //high_rhs, low_rhs = split at m
+        //z0 = karatsuba_recurse( low_self, low_rhs )
+        //z1 = karatsuba_recurse( high_self, high_rhs )
+        //z2 = karatsuba_recurse( (low_self + high_self), (low_rhs + high_rhs) )
+        //
+        //return (z2 * x^(2m) + (z1 - z2 - z0) * x^m + z0 
+    //}
 }
 
 //////////////////////////////////////////////////////////////
-// Operator Overloads
+// Evaluate 
 //////////////////////////////////////////////////////////////
+
+trait Eval<T>
+{
+    fn eval( &self, T ) -> T;
+
+    fn eval_zero( &self ) -> T;
+
+    fn eval_infty( &self ) -> T;
+}
+
+impl<T> Eval<T> for Polynomial<T> where T: Numeral
+{
+    default fn eval(&self, x: T) -> T { 
+        let mut res = T::default();
+
+        if x == res { return self.eval_zero(); }
+
+        for c in self {
+            res *= x;
+            res += c;
+        }
+
+        res       
+    }
+
+    /// Save time by just returning the zero coefficient if we want to evaluate at zero
+    fn eval_zero( &self ) -> T {
+        return self.coefficients[0];
+    }
+
+    /// Return largest coefficient
+    fn eval_infty( &self ) -> T {
+        return self[self.degree()];
+    }
+}
+
+/// For floats, overload to use FMA intrinsic
+impl Eval<f32> for Polynomial<f32>
+{
+    default fn eval(&self, x: f32) -> f32 { 
+        let mut res = 0f32;
+
+        if x == res { return self.eval_zero(); }
+
+        for c in self {
+            res = res.mul_add( x, c );
+        }
+
+        res       
+    }
+}
+
+impl Eval<f64> for Polynomial<f64>
+{
+    default fn eval(&self, x: f64) -> f64 { 
+        let mut res = 0f64;
+
+        if x == res { return self.eval_zero(); }
+
+        for c in self {
+            res = res.mul_add( x, c );
+        }
+
+        res       
+    }
+}
+
+//////////////////////////////////////////////////////////////
+// fmt 
+//////////////////////////////////////////////////////////////
+
 impl<T> fmt::Display for Polynomial<T> where T: Numeral{ 
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
 
         for (idx,c) in self.coefficients.iter().enumerate() {
@@ -316,6 +262,41 @@ impl<T> fmt::Display for Polynomial<T> where T: Numeral{
         write!(f, "{}", s)
     }
 } 
+
+impl<T> fmt::Display for Polynomial<T> where T: Numeral + Neg + PartialOrd{ 
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut s = String::new();
+
+        for (idx,c) in self.coefficients.iter().enumerate() {
+            let mut v = T::default();
+            if *c < T::default() {
+                v -= *c;
+            } else {
+                v = *c;
+            }
+            if idx == 0 {
+                s += &format!("{}", v);
+            } else if idx >= 1 {
+                s += &format!("{} X", v);
+            }
+            if idx != 0 && idx >= 2 {
+                s += &format!("^{}", (idx as i64) );
+            }
+            if (idx as i64) < (self.coefficients.len() as i64) - 1 {
+                if self.coefficients[idx+1] >= T::default() {
+                    s += &format!(" + ");
+                } else {
+                    s += &format!(" - ");
+                }
+            }
+        }
+        write!(f, "{}", s)
+    }
+} 
+
+//////////////////////////////////////////////////////////////
+// std::op Overloads
+//////////////////////////////////////////////////////////////
 
 impl<T> std::ops::Index<usize> for Polynomial<T> where T: Numeral {
     type Output = T;
@@ -484,6 +465,7 @@ mod tests {
 
         p = p + q;
         assert!( p == t2 );
+
     }
 
     #[test]
@@ -504,15 +486,27 @@ mod tests {
     }
 
     #[test]
-    fn horner_eval() {
+    fn eval() {
         let p = Polynomial::from_vec( &vec![1i32, 2, 3, 4, 5, 6] );
-        let p1 = p.horner_eval( 1 );
-        let p2 = p.horner_eval( 2 );
-        let p3 = p.horner_eval( 10 );
+        let p1 = p.eval( 1 );
+        let p2 = p.eval( 2 );
+        let p3 = p.eval( 10 );
 
         assert!( p1 == 21 );
         assert!( p2 == 120 );
         assert!( p3 == 123456 );
+    } 
+
+    #[test]
+    fn eval_f32() {
+        let p = Polynomial::from_vec( &vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0] );
+        let p1 = p.eval( 1.0 );
+        let p2 = p.eval( 2.0 );
+        let p3 = p.eval( 10.0 );
+
+        assert!( p1 == 21.0 );
+        assert!( p2 == 120.0 );
+        assert!( p3 == 123456.0 );
     } 
 
     #[test]
