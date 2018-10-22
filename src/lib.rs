@@ -5,6 +5,8 @@ extern crate test;
 //extern crate rug;
 //use rug::{Assign,Integer};
 
+pub mod karatsuba_plan;
+
 //pub mod quaternion;
 //use quaternion::Quaternion;
 use std::fmt;
