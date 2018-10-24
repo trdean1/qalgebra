@@ -13,11 +13,13 @@ use std::fmt;
 use std::ops::*;
 
 pub trait Numeral: Copy + Clone + Default + PartialEq +  
-                   Add + AddAssign + Mul + MulAssign + SubAssign + 
-                   std::fmt::Display {}
+                   Add + AddAssign + Mul + MulAssign + SubAssign +
+                   Mul<Output=Self> +
+                   std::fmt::Display { }
 impl<T> Numeral for T where T: Copy + Clone + Default + PartialEq + 
                                Add + AddAssign + Mul + MulAssign + SubAssign +
-                               std::fmt::Display {}
+                               Mul<Output=T> + 
+                               std::fmt::Display { }
 
 #[derive(Clone)]
 pub struct Polynomial<T: Numeral> {
@@ -79,15 +81,6 @@ impl<T> Polynomial<T> where T: Numeral {
 
         }
     }
-
-    /// Split at index n.  If n > degree, upper part is None, lower is unchanged
-    //fn split( &self, n: usize ) ->  ( Some(Polynomial<T>), Polynomial<T> ) {
-    //  if n > self.degree() {
-    //      let mut copy = Polynomial::<T>::with_capacity( self.degree() );
-    //      copy.copy_from( self );
-    //      return (None, copy );
-    //  }
-    //}
 
     //////////////////////////////////////////////////////////////
     // Arithmetic Stuff
@@ -168,7 +161,11 @@ impl<T> Polynomial<T> where T: Numeral {
         //
         //return (z2 * x^(2m) + (z1 - z2 - z0) * x^m + z0 
     //}
+    
+
 }
+
+
 
 //////////////////////////////////////////////////////////////
 // Evaluate 
@@ -353,6 +350,45 @@ impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
     }
 }
 
+impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral + Neg {
+    fn sub_assign( &mut self, rhs: Polynomial<T> ) {
+        for (idx, e) in rhs.into_iter().enumerate() {
+            if idx < self.coefficients.len() {
+                self[idx] -= e;
+            } else {
+                self.coefficients.push( e );
+            }
+        }
+
+        self.trim();
+    }
+}
+
+impl<T> std::ops::Sub for Polynomial<T> where T: Numeral + Neg{
+    type Output = Polynomial<T>;
+
+    fn sub ( self, rhs: Polynomial<T> ) -> Polynomial<T> {
+        let maxdeg = if self.degree() > rhs.degree() { 
+            self.degree() + 1
+        } else {
+            rhs.degree() + 1
+        };
+
+        let mut result = Polynomial::<T>::zeros( maxdeg );
+
+        for i in 0 .. maxdeg {
+            if i < self.degree() + 1 {
+                result[i] -= self[i];
+            } 
+            if i < rhs.degree() + 1 {
+                result[i] -= rhs[i];
+            }
+        }
+        result.trim();
+        result
+    }
+}
+
 impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
     fn eq( &self, other: &Polynomial<T>) -> bool {
         if self.degree() != other.degree() {
@@ -368,6 +404,37 @@ impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
         
         //Can also do this in one line, but this is less efficient
         //self.into_iter().zip(other).all( |(x,y)| x == y )
+    }
+}
+
+//////////////////////////////////////////////////////////////
+// std::op Overloads for references
+//////////////////////////////////////////////////////////////
+impl<'a, T> std::ops::AddAssign<&'a Polynomial<T>> for Polynomial<T> where T: Numeral {
+    fn add_assign( &mut self, rhs: &'a Polynomial<T> ) {
+        for (idx, e) in rhs.into_iter().enumerate() {
+            if idx < self.coefficients.len() {
+                self[idx] += e;
+            } else {
+                self.coefficients.push( e );
+            }
+        }
+
+        self.trim();
+    }
+}
+
+impl<'a, T> std::ops::SubAssign<&'a Polynomial<T>> for Polynomial<T> where T: Numeral + Neg {
+    fn sub_assign( &mut self, rhs: &'a Polynomial<T> ) {
+        for (idx, e) in rhs.into_iter().enumerate() {
+            if idx < self.coefficients.len() {
+                self[idx] -= e;
+            } else {
+                self.coefficients.push( e );
+            }
+        }
+
+        self.trim();
     }
 }
 
