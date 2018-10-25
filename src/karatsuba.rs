@@ -139,13 +139,13 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
 
 
                 for j in 0 .. num_chunks_last {
-                    KaratsubaPlan::split_and_sum_to( &last[0].chunks_a[j].upper, &mut current[0].chunks_a[3*j  ], l );
-                    KaratsubaPlan::split_and_sum_to( &last[0].chunks_a[j].lower, &mut current[0].chunks_a[3*j+1], l );
-                    KaratsubaPlan::split_and_sum_to( &last[0].chunks_a[j].sum  , &mut current[0].chunks_a[3*j+2], l );
+                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_a[j].upper, &mut current[0].chunks_a[3*j  ], l );
+                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_a[j].lower, &mut current[0].chunks_a[3*j+1], l );
+                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_a[j].sum  , &mut current[0].chunks_a[3*j+2], l );
 
-                    KaratsubaPlan::split_and_sum_to( &last[0].chunks_b[j].upper, &mut current[0].chunks_b[3*j  ], l );
-                    KaratsubaPlan::split_and_sum_to( &last[0].chunks_b[j].lower ,&mut current[0].chunks_b[3*j+1], l );
-                    KaratsubaPlan::split_and_sum_to( &last[0].chunks_b[j].sum  , &mut current[0].chunks_b[3*j+2], l );
+                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_b[j].upper, &mut current[0].chunks_b[3*j  ], l );
+                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_b[j].lower ,&mut current[0].chunks_b[3*j+1], l );
+                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_b[j].sum  , &mut current[0].chunks_b[3*j+2], l );
                 }
             } 
         }
@@ -162,17 +162,17 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
                 if i == num_layers - 1 {
                     KaratsubaPlan::combine_chunk_base( &current[0].chunks_a[3*j], 
                                                        &current[0].chunks_b[3*j], 
-                                                       &mut parent[0].results[j].upper );
+                                                       &mut parent[i-1].results[j].upper );
                     KaratsubaPlan::combine_chunk_base( &current[0].chunks_a[3*j+1], 
                                                        &current[0].chunks_b[3*j+1], 
-                                                       &mut parent[0].results[j].lower );
+                                                       &mut parent[i-1].results[j].lower );
                     KaratsubaPlan::combine_chunk_base( &current[0].chunks_a[3*j+2], 
                                                        &current[0].chunks_b[3*j+2], 
-                                                       &mut parent[0].results[j].sum );
+                                                       &mut parent[i-1].results[j].sum );
                 } else {
-                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j], &mut parent[0].results[j].upper, l );
-                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j+1], &mut parent[0].results[j].lower, l );
-                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j+2], &mut parent[0].results[j].sum, l );
+                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j], &mut parent[i-1].results[j].upper, l );
+                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j+1], &mut parent[i-1].results[j].lower, l );
+                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j+2], &mut parent[i-1].results[j].sum, l );
                 }
             }
         }
