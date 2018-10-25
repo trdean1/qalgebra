@@ -286,7 +286,7 @@ impl<T> fmt::Display for Polynomial<T> where T: Numeral + Neg + PartialOrd{
                 v = *c;
             }
             if idx == 0 {
-                s += &format!("{}", v);
+                s += &format!("{}", c);
             } else if idx >= 1 {
                 s += &format!("{} X", v);
             }
@@ -390,7 +390,7 @@ impl<T> std::ops::Sub for Polynomial<T> where T: Numeral + Neg{
 
         for i in 0 .. maxdeg {
             if i < self.degree() + 1 {
-                result[i] -= self[i];
+                result[i] += self[i];
             } 
             if i < rhs.degree() + 1 {
                 result[i] -= rhs[i];
@@ -446,7 +446,7 @@ impl AlmostEq for Polynomial<f32>  {
         }
 
         for idx in 0 .. (self.degree()+1) {
-            if ( self[idx] - other[idx] ).abs() > 1e-8 {
+            if ( self[idx] - other[idx] ).abs() > 1e-9 {
                 return false;
             }
         }
@@ -461,7 +461,7 @@ impl AlmostEq for Polynomial<f64>  {
         }
 
         for idx in 0 .. (self.degree()+1) {
-            if ( self[idx] - other[idx] ).abs() > 1e-8 {
+            if ( self[idx] - other[idx] ).abs() > 1e-9 {
                 return false;
             }
         }
@@ -596,7 +596,25 @@ mod tests {
 
         p = p + q;
         assert!( p == t2 );
+    }
 
+    #[test]
+    fn poly_sub() {
+        let mut p = Polynomial::<i32>::from_vec( &vec![1, 2, 3, 4] );
+        let q = Polynomial::from_vec( &vec![4i32, 3, 2, -1, -2] );
+        let t1 = Polynomial::from_vec( &vec![-3i32, -1, 1, 5, -2] );
+        let t2 = Polynomial::from_vec( &vec![-7i32, -4, -1, 6] );
+
+        p -= q.clone();
+
+        assert!( p == t1 );
+
+        println!("P \t= {}", p );
+        println!("Q \t= {}", q );
+        p = p - q;
+
+        println!("P - Q \t= {}", p );
+        assert!( p == t2 );
     }
 
     #[test]

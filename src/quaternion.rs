@@ -318,7 +318,7 @@ impl AlmostEq for Quaternion {
             let mask = _mm_castsi128_ps(_mm_srli_epi32(minus1, 1));
             diff = _mm_and_ps( mask, diff );
             
-            let thresh = _mm_set_ps( 1e-8, 1e-8, 1e-8, 1e-8 );
+            let thresh = _mm_set_ps( 1e-5, 1e-5, 1e-5, 1e-5 );
             let cmp = _mm_cmpge_ps( diff, thresh );
 
             let unpacked: (f64, f64);
@@ -417,6 +417,29 @@ mod tests {
         }
     }
 
+    #[test]
+    fn basic_sub() {
+        if cfg!(target_arch = "x86_64") {
+            let mut a = Quaternion::from_vals( 1.0, -2.0, 3.0, -4.0 );
+            let bvec = vec![1.0f32, 1.0, 1.0, 1.0];
+            let b = Quaternion::from_vec( &bvec );
+
+            a -= b;
+            
+            let mut res = a.to_vec();
+            let mut tv = vec![0.0f32, -3.0, 2.0, -5.0];
+            assert!(res.iter().zip(tv).all( |(x,y)| (x - y).abs() < 1e-9 ));
+
+            a = a - b;
+
+            res = a.to_vec();
+            tv = vec![-1.0f32, -4.0, 1.0, -6.0];
+            assert!(res.iter().zip(tv).all( |(x,y)| (x - y).abs() < 1e-9 ));
+
+        } else {
+            assert!( false );
+        }  
+    }
     
     #[test]
     fn basic_mul() {
