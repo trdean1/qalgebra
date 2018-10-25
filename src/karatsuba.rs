@@ -139,13 +139,10 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
 
 
                 for j in 0 .. num_chunks_last {
-                    println!("{},{}", i, j);
-                    println!("Split a");
                     KaratsubaPlan::split_and_sum_to( &last[0].chunks_a[j].upper, &mut current[0].chunks_a[3*j  ], l );
                     KaratsubaPlan::split_and_sum_to( &last[0].chunks_a[j].lower, &mut current[0].chunks_a[3*j+1], l );
                     KaratsubaPlan::split_and_sum_to( &last[0].chunks_a[j].sum  , &mut current[0].chunks_a[3*j+2], l );
 
-                    println!("Split b");
                     KaratsubaPlan::split_and_sum_to( &last[0].chunks_b[j].upper, &mut current[0].chunks_b[3*j  ], l );
                     KaratsubaPlan::split_and_sum_to( &last[0].chunks_b[j].lower ,&mut current[0].chunks_b[3*j+1], l );
                     KaratsubaPlan::split_and_sum_to( &last[0].chunks_b[j].sum  , &mut current[0].chunks_b[3*j+2], l );
@@ -381,10 +378,28 @@ mod tests {
         let t = Polynomial::from_vec( &vec![4, 11, 20, 30, 20, 11, 4] );
 
         if let Ok(mut plan) = plan_maybe {
-            plan.execute_plan( &mut res, &p1, &p2 );
+            assert!( plan.execute_plan( &mut res, &p1, &p2 ).is_ok() );
             assert!( res == t );
         } else {
             assert!(false);
         }
     }
+
+    #[test]
+    fn ka_deg_zero_bug() {
+        let plan_maybe = KaratsubaPlan::<i32>::new_plan( 4 );
+
+        let p1 = Polynomial::from_vec( &vec![17,-1,-9,16] );
+        let p2 = Polynomial::from_vec( &vec![10,-12,0,0] );
+        let mut res = Polynomial::with_capacity( 6 );
+        let t = Polynomial::from_vec( &vec![170, -214, -78, 268, -192] );
+
+        if let Ok(mut plan) = plan_maybe {
+            assert!( plan.execute_plan( &mut res, &p1, &p2 ).is_ok() );
+            assert!( res == t );
+        } else {
+            assert!(false);
+        }
+    }
+
 }

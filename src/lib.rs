@@ -57,6 +57,9 @@ impl<T> Polynomial<T> where T: Numeral {
 
     /// Return degree --- length of coefficient array minus one
     pub fn degree( &self ) -> usize {
+        if self.coefficients.len() == 0 {
+            return 0;
+        }
         self.coefficients.len() - 1
     }
 
@@ -74,8 +77,11 @@ impl<T> Polynomial<T> where T: Numeral {
     /// Remove trailing zero terms
     /// XXX: Again assuming default is 0
     fn trim( &mut self ) {
+        if self.coefficients.len() == 0 { return; }
+
         while self.coefficients[ self.degree() ] == T::default() {
-            if self.coefficients.pop().is_none() {
+            self.coefficients.pop();
+            if self.coefficients.len() == 0 {
                 break;
             }
 
@@ -139,10 +145,12 @@ impl<T> Polynomial<T> where T: Numeral {
         let mut result = Polynomial::<T>::zeros( outdegree );
         let mut tmp = Polynomial::<T>::with_capacity( large.degree()+1 );
         for (i, c) in small.into_iter().enumerate() {
-            tmp.copy_from( large );
-            tmp.scalar_multiply( c );
-            tmp.xn_multiply( i );
-            result += tmp.clone(); //XXX: Hopefully this doesn't do anything memory heavy?
+            if c != T::default() {
+                tmp.copy_from( large );
+                tmp.scalar_multiply( c );
+                tmp.xn_multiply( i );
+                result += tmp.clone(); //XXX: Hopefully this doesn't do anything memory heavy?
+            }
         }
 
         result
@@ -589,4 +597,14 @@ mod tests {
         assert!( r == t );
     }
 
+    #[test]
+    fn gradschool_zero_index() {
+        let p1 = Polynomial::from_vec( &vec![14,0,-8,1] );
+        let p2 = Polynomial::from_vec( &vec![0,-18,2,-18] );
+        let t = Polynomial::from_vec( &vec![0, -252, 28, -108, -34, 146, -18] );
+
+        let r = p1.gradeschool_mul( &p2 );
+
+        assert!( r == t );
+    }
 }
