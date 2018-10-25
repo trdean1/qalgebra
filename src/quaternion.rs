@@ -3,6 +3,7 @@ extern crate test;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 use std;
+use std::fmt;
 
 #[derive(Copy, Clone)]
 pub struct Quaternion{
@@ -58,6 +59,14 @@ impl Quaternion {
     }
 }
 
+impl Default for Quaternion {
+    fn default() -> Quaternion {
+        Quaternion {
+            pb: unsafe{ _mm_set_ps( 0.0, 0.0, 0.0, 0.0 ) }
+        }
+    }
+}
+
 impl std::ops::AddAssign for Quaternion {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Quaternion) {
@@ -93,7 +102,6 @@ impl std::ops::Sub for Quaternion {
         }
     }
 }
-
 
 impl std::ops::Mul for Quaternion {
     type Output = Quaternion;
@@ -250,7 +258,50 @@ impl std::ops::DivAssign for Quaternion {
     }
 }
 
-/// TODO: This is a shell class just for benchmarking.  Not sure how much it makes sense
+impl std::ops::Neg for Quaternion {
+    type Output = Quaternion;
+
+    #[inline(always)]
+    fn neg(self) -> Quaternion {
+        let res;
+        unsafe {
+            let mask  = _mm_set_epi32(-2147483648i32,-2147483648i32,-2147483648i32,-2147483648i32); //Sign bits 
+            res = _mm_xor_ps( self.pb, _mm_castsi128_ps(mask) );
+        }
+
+        Quaternion{ pb: res }
+    }
+}
+
+/// XXX: Not sure if this is the fastest way to do this.  Can the processor branch on an _m128?
+impl std::cmp::PartialEq for Quaternion {
+    fn eq( &self, other: &Quaternion) -> bool {
+
+        let unpacked: (f64, f64);
+        unsafe {
+            let cmp = _mm_cmpneq_ps( self.pb, other.pb );
+            unpacked = std::mem::transmute( cmp );
+        }
+        if unpacked.0 == 0.0 && unpacked.1 == 0.0 {
+            return true;
+        }
+    
+        false
+    }
+}
+
+
+impl fmt::Display for Quaternion {
+    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let q = self.to_vec();
+
+        let mut s = String::new();
+        s += &format!("({} + {}*I + {}*J + {}*K)", q[0], q[1], q[2], q[3]);
+        write!(f, "{}", s)
+    }
+}
+
+/// XXX: This is a shell class just for benchmarking.  Not sure how much it makes sense
 /// to flush this out like the SIMD version
 #[derive(Copy, Clone)]
 pub struct QuaternionNonSIMD {
@@ -380,6 +431,19 @@ mod tests {
         } else {
             assert!( false );
         }
+    }
+
+    #[test]
+    fn negate() {
+        if cfg!(target_arch = "x86_64") {
+            let mut a = Quaternion::from_vals( 1.0, 1.0, 1.0, 1.0 );
+            a = -a;
+
+            let tv = vec![-1.0f32, -1.0, -1.0, -1.0];
+            assert!( a.to_vec().iter().zip(tv).all( |(x,y)| (x - y).abs() < 1e-9 ));
+        } else {
+            assert!( false );
+        }   
     }
 
     #[test]
