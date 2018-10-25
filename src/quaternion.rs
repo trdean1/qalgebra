@@ -5,6 +5,8 @@ use std::arch::x86_64::*;
 use std;
 use std::fmt;
 
+use AlmostEq;
+
 #[derive(Copy, Clone)]
 pub struct Quaternion{
     pb: __m128 
@@ -57,6 +59,8 @@ impl Quaternion {
             self.pb = _mm_mul_ps( self.pb, xx );
         }
     }
+
+
 }
 
 impl Default for Quaternion {
@@ -301,6 +305,34 @@ impl fmt::Display for Quaternion {
     }
 }
 
+impl AlmostEq for Quaternion {
+    #[inline(always)]
+    fn almost_eq( &self, other: &Quaternion ) -> bool {
+        let mut res = false;
+        
+        unsafe {
+            let mut diff = _mm_sub_ps( self.pb, other.pb );
+
+            //Get a mask and mask off the sign bits
+            let minus1 = _mm_set1_epi32(-1);
+            let mask = _mm_castsi128_ps(_mm_srli_epi32(minus1, 1));
+            diff = _mm_and_ps( mask, diff );
+            
+            let thresh = _mm_set_ps( 1e-8, 1e-8, 1e-8, 1e-8 );
+            let cmp = _mm_cmpge_ps( diff, thresh );
+
+            let unpacked: (f64, f64);
+            unpacked = std::mem::transmute( cmp );
+
+            if unpacked.0 == 0.0 && unpacked.1 == 0.0 {
+                res = true;
+            }
+        }
+
+        res
+    }
+}
+
 /// XXX: This is a shell class just for benchmarking.  Not sure how much it makes sense
 /// to flush this out like the SIMD version
 #[derive(Copy, Clone)]
@@ -431,6 +463,20 @@ mod tests {
         } else {
             assert!( false );
         }
+    }
+
+    #[test]
+    fn almost_eq() {
+        if cfg!(target_arch = "x86_64") {
+            let a = Quaternion::from_vals( 1.08723, 1.0001,          1.9999, -1.0 );
+            let b = Quaternion::from_vals( 1.08723, 1.0001,          1.9999, -1.0 );
+            let c = Quaternion::from_vals( 1.08723, 1.0001000000001, 1.9999, -1.0 );
+
+            assert!( a.almost_eq( &b ) );
+            assert!( a.almost_eq( &c ) );
+        } else {
+            assert!( false );
+        }  
     }
 
     #[test]

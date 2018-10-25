@@ -15,10 +15,15 @@ pub trait Numeral: Copy + Clone + Default + PartialEq +
                    Add + AddAssign + Mul + MulAssign + SubAssign +
                    Mul<Output=Self> +
                    std::fmt::Display { }
+
 impl<T> Numeral for T where T: Copy + Clone + Default + PartialEq + 
                                Add + AddAssign + Mul + MulAssign + SubAssign +
                                Mul<Output=T> + 
                                std::fmt::Display { }
+
+pub trait AlmostEq {
+    fn almost_eq( &self, other: &Self) -> bool;
+}
 
 #[derive(Clone)]
 pub struct Polynomial<T: Numeral> {
@@ -411,6 +416,56 @@ impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
         
         //Can also do this in one line, but this is less efficient
         //self.into_iter().zip(other).all( |(x,y)| x == y )
+    }
+}
+
+
+//////////////////////////////////////////////////////////////
+// Include almost_eq function for types that have AlmostEq trait
+//////////////////////////////////////////////////////////////
+
+impl<T> AlmostEq for Polynomial<T> where T: Numeral + AlmostEq {
+    fn almost_eq( &self, other: &Polynomial<T> ) -> bool {
+         if self.degree() != other.degree() {
+            return false;
+        }
+
+        for idx in 0 .. (self.degree()+1) {
+            if !self[idx].almost_eq( &other[idx] ) {
+                return false;
+            }
+        }
+        true       
+    }
+}
+
+impl AlmostEq for Polynomial<f32>  {
+    fn almost_eq( &self, other: &Polynomial<f32> ) -> bool {
+         if self.degree() != other.degree() {
+            return false;
+        }
+
+        for idx in 0 .. (self.degree()+1) {
+            if ( self[idx] - other[idx] ).abs() > 1e-8 {
+                return false;
+            }
+        }
+        true       
+    }
+}
+
+impl AlmostEq for Polynomial<f64>  {
+    fn almost_eq( &self, other: &Polynomial<f64> ) -> bool {
+         if self.degree() != other.degree() {
+            return false;
+        }
+
+        for idx in 0 .. (self.degree()+1) {
+            if ( self[idx] - other[idx] ).abs() > 1e-8 {
+                return false;
+            }
+        }
+        true       
     }
 }
 
