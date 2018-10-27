@@ -70,19 +70,20 @@ impl std::ops::MulAssign for ComplexSIMD32 {
             //load      ac    | bc      | 0  | 0
             //load      bd    | ad      | 0  | 0
             //addsub    ac-bd | bc + ad | 0  | 0
-            let abcd = _mm_shuffle_ps( x, y, 0x44 );
-            let cdba = _mm_shuffle_ps( y, x, 0x14 );
-            let prod = _mm_mul_ps( abcd, cdba );
+            let abab = _mm_shuffle_ps( x, x, 0x44 );
+            let cddc = _mm_shuffle_ps( y, y, 0x14 );
+            let prod = _mm_mul_ps( abab, cddc );
             let p1   = _mm_shuffle_ps( prod, prod, 0x08 );
             let p2   = _mm_shuffle_ps( prod, prod, 0x0D );
             self.pb  = _mm_addsub_ps( p1, p2 );
 
+            
             /*
             asm!("
             movaps ($0), %xmm0
             movaps ($1), %xmm1
             movaps %xmm1, %xmm2
-            shufps $$0x44, %xmm0, %xmm2       
+            shufps $$0x00, %xmm0, %xmm2       
             shufps $$0x14, %xmm1, %xmm0        
             mulps  %xmm2, %xmm0
             movaps %xmm0, %xmm1
@@ -95,7 +96,7 @@ impl std::ops::MulAssign for ComplexSIMD32 {
             : "xmm0","xmm1","xmm2"
             : "volatile" );
             */
-        }       
+        }    
     }
 }
 
@@ -169,11 +170,11 @@ mod tests{
 
     #[test]
     fn mul_test32_std() {
-        let mut x = Complex { re: 0.707f32, im: -0.707f32 };
-        let y = Complex { re: 0.5f32, im: -0.8124f32 };
+        let mut x = Complex { re: 0.1f32, im: -0.2f32 };
+        let y = Complex { re: 0.3f32, im: -0.4f32 };
 
-        let mut xm128 = ComplexSIMD32::from_vals(0.707f32, -0.707f32);
-        let ym128 = ComplexSIMD32::from_vals(0.5f32, -0.8124f32);
+        let mut xm128 = ComplexSIMD32::from_vals(0.1f32, -0.2f32);
+        let ym128 = ComplexSIMD32::from_vals(0.3f32, -0.4f32);
 
         let prod_std = x * y;
         simd_mul_assign32( &mut x, y );
@@ -189,48 +190,48 @@ mod tests{
 
     #[bench]
     fn nonsimd_mul64(b: &mut Bencher) {
-        let mut x = Complex { re: 0.707f64, im: -0.707f64 };
-        let y = Complex { re: 0.5f64, im: -0.8124f64 };
+        let mut x = Complex { re: 0.707107f64, im: -0.707107f64 };
+        let y = Complex { re: 0.5f64, im: -0.866025f64 };
 
         b.iter(|| x *= y); 
     }
 
     #[bench]
     fn nonsimd_mul32(b: &mut Bencher) {
-        let mut x = Complex { re: 0.707f32, im: -0.707f32 };
-        let y = Complex { re: 0.5f32, im: -0.8124f32 };
+        let mut x = Complex { re: 0.707107f32, im: -0.707107f32 };
+        let y = Complex { re: 0.5f32, im: -0.866025f32 };
 
         b.iter(|| x *= y); 
     }
 
     #[bench]
     fn simd_mul64(b: &mut Bencher) {
-        let mut x = ComplexSIMD64::from_vals(0.707f64, -0.707f64);
-        let y = ComplexSIMD64::from_vals(0.5f64, -0.8124f64);
+        let mut x = ComplexSIMD64::from_vals(0.707107f64, -0.707107f64);
+        let y = ComplexSIMD64::from_vals(0.5f64, -0.866025f64);
 
         b.iter(|| x *= y ); 
     }
 
     #[bench]
     fn msimd_mul32(b: &mut Bencher) {
-        let mut x = ComplexSIMD32::from_vals(0.707f32, -0.707f32);
-        let y = ComplexSIMD32::from_vals(0.5f32, -0.8124f32);
+        let mut x = ComplexSIMD32::from_vals(0.707107, -0.707107);
+        let y = ComplexSIMD32::from_vals(0.5, -0.866025);
 
         b.iter(|| x *= y ); 
     }
 
     #[bench]
     fn simd_mul_conv64(b: &mut Bencher) {
-        let mut x = Complex { re: 0.707f64, im: -0.707f64 };
-        let y = Complex { re: 0.5f64, im: -0.8124f64 };
+        let mut x = Complex { re: 0.707107f64, im: -0.707107f64 };
+        let y = Complex { re: 0.5f64, im: -0.866025f64 };
 
         b.iter(|| simd_mul_assign64( &mut x, y ) ); 
     }
 
     #[bench]
     fn simd_mul_conv32(b: &mut Bencher) {
-        let mut x = Complex { re: 0.707f32, im: -0.707f32 };
-        let y = Complex { re: 0.5f32, im: -0.8124f32 };
+        let mut x = Complex { re: 0.707107f32, im: -0.707107f32 };
+        let y = Complex { re: 0.5f32, im: -0.866025f32 };
 
         b.iter(|| simd_mul_assign32( &mut x, y ) ); 
     }

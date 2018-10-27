@@ -530,32 +530,36 @@ mod tests {
 
     #[bench]
     fn sse_mul(b: &mut Bencher) {
-        let mut x = Quaternion::from_vals( 0.5, -0.25, 0.125, -0.1 );
-        let y = Quaternion::from_vals( 1.0, 1.25, 0.125, -1.5 );
+        let mut x = Quaternion::from_vals( 0.5, -0.5, 0.5, -0.5 );
+        let y = Quaternion::from_vals( 0.5725695175851593, 0.5597722931244762, 
+                                       0.5597722931244762, 0.2132465878569433 );
 
         b.iter(|| x *= y )
     }
 
     #[bench]
     fn plain_mul(b: &mut Bencher) {
-        let mut x = QuaternionNonSIMD::new( 0.5, -0.25, 0.125, -0.1 );
-        let y = QuaternionNonSIMD::new( 1.0, 1.25, 0.125, -1.5 );
+        let mut x = QuaternionNonSIMD::new( 0.5, -0.5, 0.5, -0.5 );
+        let y = QuaternionNonSIMD::new( 0.5725695175851593, 0.5597722931244762, 
+                                        0.5597722931244762, 0.2132465878569433 );
 
         b.iter(|| x *= y )
     }
 
     #[bench]
     fn sse_div(b: &mut Bencher) {
-        let mut x = Quaternion::from_vals( 0.5, -0.25, 0.125, -0.1 );
-        let y = Quaternion::from_vals( 1.0, 1.25, 0.125, -1.5 );
+        let mut x = Quaternion::from_vals( 0.5, -0.5, 0.5, -0.5 );
+        let y = Quaternion::from_vals( 0.5725695175851593, 0.5597722931244762, 
+                                       0.5597722931244762, 0.2132465878569433 );
 
         b.iter(|| x /= y )
     }
 
     #[bench]
     fn plain_div(b: &mut Bencher) {
-        let mut x = QuaternionNonSIMD::new( 0.5, -0.25, 0.125, -0.1 );
-        let y = QuaternionNonSIMD::new( 1.0, 1.25, 0.125, -1.5 );
+        let mut x = QuaternionNonSIMD::new( 0.5, -0.5, 0.5, -0.5 );
+        let y = QuaternionNonSIMD::new( 0.5725695175851593, 0.5597722931244762, 
+                                        0.5597722931244762, 0.2132465878569433 );
 
         b.iter(|| x /= y )
     }
