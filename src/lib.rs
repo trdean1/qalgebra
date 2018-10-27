@@ -1,5 +1,6 @@
 #![feature(specialization)]
 #![feature(test)]
+#![feature(asm)]
 extern crate test;
 
 //extern crate rug;
@@ -7,6 +8,7 @@ extern crate test;
 
 pub mod karatsuba;
 pub mod quaternion;
+pub mod complex;
 //use quaternion::Quaternion;
 use std::fmt;
 use std::ops::*;

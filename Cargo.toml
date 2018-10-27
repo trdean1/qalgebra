@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["Tom Dean <trdean@stanford.edu>"]
 
 [dependencies]
-rug = "1.2.2"
+num-complex = ""
 rand = ""
