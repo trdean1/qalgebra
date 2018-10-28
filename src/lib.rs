@@ -2,6 +2,7 @@
 #![feature(test)]
 #![feature(asm)]
 extern crate test;
+extern crate num_traits;
 
 //extern crate rug;
 //use rug::{Assign,Integer};
@@ -11,16 +12,17 @@ pub mod quaternion;
 pub mod complex;
 //use quaternion::Quaternion;
 use std::fmt;
-use std::ops::*;
 
-pub trait Numeral: Copy + Clone + Default + PartialEq +  
-                   Add + AddAssign + Mul + MulAssign + SubAssign +
-                   Mul<Output=Self> +
+use num_traits::{Num,NumAssign,NumAssignOps};
+use num_traits::sign::Signed;
+
+
+pub trait Numeral: Copy + Clone + 
+                   Num + NumAssign + NumAssignOps + 
                    std::fmt::Display { }
 
-impl<T> Numeral for T where T: Copy + Clone + Default + PartialEq + 
-                               Add + AddAssign + Mul + MulAssign + SubAssign +
-                               Mul<Output=T> + 
+impl<T> Numeral for T where T: Copy + Clone + 
+                               Num + NumAssign + NumAssignOps + 
                                std::fmt::Display { }
 
 pub trait AlmostEq {
@@ -52,9 +54,8 @@ impl<T> Polynomial<T> where T: Numeral {
 
     
     /// Create a polynomial with all n zero coefficients
-    /// XXX: This assumes T::default is the additive identity.  Is this smart?
     pub fn zeros( n: usize ) -> Polynomial<T> {
-        let v = vec![T::default(); n];
+        let v = vec![T::zero(); n];
         Polynomial {
             coefficients : v
         }
@@ -85,7 +86,7 @@ impl<T> Polynomial<T> where T: Numeral {
     fn trim( &mut self ) {
         if self.coefficients.len() == 0 { return; }
 
-        while self.coefficients[ self.degree() ] == T::default() {
+        while self.coefficients[ self.degree() ] == T::zero() {
             self.coefficients.pop();
             if self.coefficients.len() == 0 {
                 break;
@@ -108,17 +109,17 @@ impl<T> Polynomial<T> where T: Numeral {
     /// Multiply by x^n...shift coefficeints up n slots
     pub fn xn_multiply( &mut self, n: usize ) {
         for _ in 0..n {
-            self.coefficients.insert( 0, T::default() );
+            self.coefficients.insert( 0, T::zero() );
         }
     }
 
     /// Divide by x^n...shift down n slots and return remainder if not zero
     pub fn xn_divide( &mut self, n: usize) -> Option<Polynomial<T>> {
-        let mut remainder = vec![T::default(); n];
+        let mut remainder = vec![T::zero(); n];
         let mut has_rem = false;
         for i in 0..n {
             remainder[i] = self.coefficients.remove(0);
-            if remainder[i] != T::default() { has_rem = true; } //Save us iterating again
+            if remainder[i] != T::zero() { has_rem = true; } //Save us iterating again
         }
 
         if has_rem {
@@ -151,7 +152,7 @@ impl<T> Polynomial<T> where T: Numeral {
         let mut result = Polynomial::<T>::zeros( outdegree );
         let mut tmp = Polynomial::<T>::with_capacity( large.degree()+1 );
         for (i, c) in small.into_iter().enumerate() {
-            if c != T::default() {
+            if c != T::zero() {
                 tmp.copy_from( large );
                 tmp.scalar_multiply( c );
                 tmp.xn_multiply( i );
@@ -194,10 +195,10 @@ trait Eval<T>
     fn eval_infty( &self ) -> T;
 }
 
-impl<T> Eval<T> for Polynomial<T> where T: Numeral
+impl<T> Eval<T> for Polynomial<T> where T: Numeral 
 {
     default fn eval(&self, x: T) -> T { 
-        let mut res = T::default();
+        let mut res = T::zero();
 
         if x == res { return self.eval_zero(); }
 
@@ -255,7 +256,7 @@ impl Eval<f64> for Polynomial<f64>
 // fmt 
 //////////////////////////////////////////////////////////////
 
-impl<T> fmt::Display for Polynomial<T> where T: Numeral{ 
+impl<T> fmt::Display for Polynomial<T> where T: Numeral { 
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
 
@@ -276,13 +277,13 @@ impl<T> fmt::Display for Polynomial<T> where T: Numeral{
     }
 } 
 
-impl<T> fmt::Display for Polynomial<T> where T: Numeral + Neg + PartialOrd{ 
+impl<T> fmt::Display for Polynomial<T> where T: Numeral + Signed + PartialOrd{ 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
 
         for (idx,c) in self.coefficients.iter().enumerate() {
-            let mut v = T::default();
-            if *c < T::default() {
+            let mut v = T::zero();
+            if *c < T::zero() {
                 v -= *c;
             } else {
                 v = *c;
@@ -296,7 +297,7 @@ impl<T> fmt::Display for Polynomial<T> where T: Numeral + Neg + PartialOrd{
                 s += &format!("^{}", (idx as i64) );
             }
             if (idx as i64) < (self.coefficients.len() as i64) - 1 {
-                if self.coefficients[idx+1] >= T::default() {
+                if self.coefficients[idx+1] >= T::zero() {
                     s += &format!(" + ");
                 } else {
                     s += &format!(" - ");
@@ -364,7 +365,7 @@ impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
     }
 }
 
-impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral + Neg {
+impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral + Signed {
     fn sub_assign( &mut self, rhs: Polynomial<T> ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {
@@ -378,7 +379,7 @@ impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral + Neg {
     }
 }
 
-impl<T> std::ops::Sub for Polynomial<T> where T: Numeral + Neg{
+impl<T> std::ops::Sub for Polynomial<T> where T: Numeral + Signed {
     type Output = Polynomial<T>;
 
     fn sub ( self, rhs: Polynomial<T> ) -> Polynomial<T> {
@@ -488,7 +489,7 @@ impl<'a, T> std::ops::AddAssign<&'a Polynomial<T>> for Polynomial<T> where T: Nu
     }
 }
 
-impl<'a, T> std::ops::SubAssign<&'a Polynomial<T>> for Polynomial<T> where T: Numeral + Neg {
+impl<'a, T> std::ops::SubAssign<&'a Polynomial<T>> for Polynomial<T> where T: Numeral + Signed {
     fn sub_assign( &mut self, rhs: &'a Polynomial<T> ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {

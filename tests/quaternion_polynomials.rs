@@ -1,3 +1,4 @@
+/*
 extern crate qalgebra;
 extern crate rand;
 
@@ -91,3 +92,4 @@ fn degree4_mul() {
         println!("\n\n");
     }
 }
+*/

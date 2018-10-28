@@ -76,14 +76,13 @@ impl std::ops::MulAssign for ComplexSIMD32 {
             let p1   = _mm_shuffle_ps( prod, prod, 0x08 );
             let p2   = _mm_shuffle_ps( prod, prod, 0x0D );
             self.pb  = _mm_addsub_ps( p1, p2 );
-
             
             /*
             asm!("
             movaps ($0), %xmm0
             movaps ($1), %xmm1
             movaps %xmm1, %xmm2
-            shufps $$0x00, %xmm0, %xmm2       
+            shufps $$0x44, %xmm0, %xmm2       
             shufps $$0x14, %xmm1, %xmm0        
             mulps  %xmm2, %xmm0
             movaps %xmm0, %xmm1

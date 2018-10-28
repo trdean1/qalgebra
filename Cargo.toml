@@ -5,4 +5,5 @@ authors = ["Tom Dean <trdean@stanford.edu>"]
 
 [dependencies]
 num-complex = ""
+num-traits = ""
 rand = ""
