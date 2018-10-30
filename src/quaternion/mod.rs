@@ -15,14 +15,14 @@ use AlmostEq;
 mod cast;
 
 #[derive(Copy, Clone, Debug)]
-pub struct Quaternion<T: Numeral>{
+pub struct Quaternion<T: Numeral + Signed>{
     a: T,
     b: T,
     c: T,
     d: T,
 }
 
-impl<T> Quaternion<T> where T: Numeral {
+impl<T> Quaternion<T> where T: Numeral + Signed {
     pub fn from_vals( a: T, b: T, c: T, d: T ) 
         -> Quaternion<T> {
         Quaternion{ 
@@ -45,7 +45,7 @@ impl<T> Quaternion<T> where T: Numeral {
     }
 }
 
-impl<T> Zero for Quaternion<T> where T: Numeral {
+impl<T> Zero for Quaternion<T> where T: Numeral + Signed {
     fn zero() -> Quaternion<T> {
         Quaternion {
             a: T::zero(),
@@ -65,7 +65,7 @@ impl<T> Zero for Quaternion<T> where T: Numeral {
 /// Misc Traits
 /////////////////////////////////////////////////////////////////
 
-impl<T> One for Quaternion<T> where T: Numeral {
+impl<T> One for Quaternion<T> where T: Numeral + Signed {
     fn one() -> Quaternion<T> {
         Quaternion {
             a: T::one(),
@@ -81,17 +81,19 @@ impl<T> One for Quaternion<T> where T: Numeral {
     }
 }
 
-impl<T> std::cmp::PartialEq for Quaternion<T> where T: Numeral {
+impl<T> std::cmp::PartialEq for Quaternion<T> where T: Numeral + Signed {
     fn eq( &self, other: &Quaternion<T>) -> bool {
         self.a == other.a && self.b == other.b &&
         self.c == other.c && self.d == other.d
     }
 }
 
-impl<T> AlmostEq for Quaternion<T> where T: Numeral + ToPrimitive {
+//Consider overloading this for different types...i.e. accept lower
+//precision for f32 vs f64
+impl<T> AlmostEq for Quaternion<T> where T: Numeral + ToPrimitive + Signed {
     fn almost_eq( &self, other: &Quaternion<T> ) -> bool {
         let norm_diff = (*self - *other).norm();
-        if norm_diff < 1e-7 {
+        if norm_diff < 1e-5 {
             return true;
         } else {
             return false;
@@ -99,11 +101,13 @@ impl<T> AlmostEq for Quaternion<T> where T: Numeral + ToPrimitive {
     }
 }
 
+//Norm should map a quaternion of any type to R so I think f64 is a reasonable 
+//return type.  Might consider changing if arch is not x86_64
 trait Norm<T> {
     fn norm( self ) -> f64;
 }
 
-impl<T> Norm<T> for Quaternion<T> where T: Numeral + ToPrimitive {
+impl<T> Norm<T> for Quaternion<T> where T: Numeral + ToPrimitive + Signed {
     fn norm( self ) -> f64 {
         let norm_sq = self.a * self.a + self.b * self.b + 
                       self.c * self.c + self.d * self.d;
@@ -116,7 +120,7 @@ impl<T> Norm<T> for Quaternion<T> where T: Numeral + ToPrimitive {
     }
 }
 
-impl<T> fmt::Display for Quaternion<T> where T: Numeral {
+impl<T> fmt::Display for Quaternion<T> where T: Numeral + Signed {
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         s += &format!("({} + {}*I + {}*J + {}*K)", self.a, self.b, 
@@ -144,7 +148,7 @@ trait ScalarOps<T> {
     fn scalar_mul( &mut self, T );
 }
 
-impl<T> ScalarOps<T> for Quaternion<T> where T: Numeral {
+impl<T> ScalarOps<T> for Quaternion<T> where T: Numeral + Signed {
     fn scalar_add( &mut self, rhs: T ) {
         self.a += rhs;  self.b += rhs;
         self.c += rhs;  self.d += rhs;
@@ -191,7 +195,7 @@ impl<T> Conjugate<T> for Quaternion<T> where T: Numeral + Signed {
     }
 }
 
-impl<T> std::ops::Neg for Quaternion<T> where T: Numeral + 
+impl<T> std::ops::Neg for Quaternion<T> where T: Numeral + Signed + 
                                                  std::ops::Neg + 
                                                  std::ops::Neg<Output=T> {
     type Output = Quaternion<T>;
@@ -211,7 +215,7 @@ impl<T> std::ops::Neg for Quaternion<T> where T: Numeral +
 /// Arithmetic 
 /////////////////////////////////////////////////////////////////
 
-impl<T> std::ops::Add for Quaternion<T> where T: Numeral {
+impl<T> std::ops::Add for Quaternion<T> where T: Numeral + Signed {
     type Output = Quaternion<T>;
 
     fn add(self, rhs: Quaternion<T>) -> Quaternion<T> {
@@ -224,13 +228,13 @@ impl<T> std::ops::Add for Quaternion<T> where T: Numeral {
     }
 }
 
-impl<T> std::ops::AddAssign for Quaternion<T> where T: Numeral {
+impl<T> std::ops::AddAssign for Quaternion<T> where T: Numeral + Signed {
     fn add_assign(&mut self, rhs: Quaternion<T>) {
         *self = *self + rhs;
     }
 }
 
-impl<T> std::ops::Sub for Quaternion<T> where T: Numeral {
+impl<T> std::ops::Sub for Quaternion<T> where T: Numeral + Signed {
     type Output = Quaternion<T>;
 
     fn sub(self, rhs: Quaternion<T>) -> Quaternion<T> {
@@ -243,13 +247,13 @@ impl<T> std::ops::Sub for Quaternion<T> where T: Numeral {
     }
 }
 
-impl<T> std::ops::SubAssign for Quaternion<T> where T: Numeral {
+impl<T> std::ops::SubAssign for Quaternion<T> where T: Numeral + Signed {
     fn sub_assign(&mut self, rhs: Quaternion<T>) {
         *self = *self - rhs;
     }
 }
 
-impl<T> std::ops::Mul for Quaternion<T> where T: Numeral {
+impl<T> std::ops::Mul for Quaternion<T> where T: Numeral + Signed {
     type Output = Quaternion<T>;
 
     default fn mul( self, rhs: Quaternion<T> ) -> Quaternion<T> {
@@ -301,7 +305,7 @@ impl std::ops::Mul for Quaternion<f32> {
     }
 }
 
-impl<T> std::ops::MulAssign for Quaternion<T> where  T: Numeral {
+impl<T> std::ops::MulAssign for Quaternion<T> where  T: Numeral + Signed {
     fn mul_assign( &mut self, rhs: Quaternion<T> ) {
         *self = *self * rhs;
     }
@@ -521,20 +525,20 @@ mod tests {
 
     #[test]
     fn basic_mul32() {
-        let bvec = vec![1.0f32, 2.0, 3.0, 4.0];
-        let mut a = Quaternion::from_vals( 2.0, 2.0, 2.0, 2.0 );
+        let bvec = vec![1.0f32, -2.0, 3.0, -4.0];
+        let mut a = Quaternion::from_vals( -2.0, 2.0, 2.0, 2.0 );
         let mut b = Quaternion::from_vec( &bvec );
 
         a *= b;
         
-        let mut tv = Quaternion::from_vals( -16.0f32, 8.0, 4.0, 12.0 );
+        let mut tv = Quaternion::from_vals( 4.0f32, -8.0, 0.0, 20.0 );
 
         assert!( a.almost_eq( &tv ) );
         
         b = Quaternion::from_vals( -0.25, 0.125, 0.1, 0.125 );
         a = a * b;
 
-        tv = Quaternion::from_vals( 1.1, -4.7, -2.1, -4.7 );
+        tv = Quaternion::from_vals( -2.5, 0.5, 3.9, -5.3 );
 
         assert!( a.almost_eq(&tv) );
     }

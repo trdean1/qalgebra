@@ -1,7 +1,7 @@
 extern crate num_traits;
 
 use super::Quaternion;
-use num_traits::{AsPrimitive, FromPrimitive, NumCast, ToPrimitive};
+use num_traits::{AsPrimitive, FromPrimitive, NumCast, ToPrimitive, Signed};
 use Numeral;
 
 macro_rules! impl_to_primitive {
@@ -20,7 +20,7 @@ macro_rules! impl_to_primitive {
 } // impl_to_primitive
 
 // Returns None if Complex part is non-zero
-impl<T> ToPrimitive for Quaternion<T> where T: Numeral + ToPrimitive {
+impl<T> ToPrimitive for Quaternion<T> where T: Numeral + ToPrimitive + Signed {
     impl_to_primitive!(usize, to_usize);
     impl_to_primitive!(isize, to_isize);
     impl_to_primitive!(u8, to_u8);
@@ -53,7 +53,7 @@ macro_rules! impl_from_primitive {
     };
 } // impl_from_primitive
 
-impl<T> FromPrimitive for Quaternion<T> where T: Numeral + FromPrimitive {
+impl<T> FromPrimitive for Quaternion<T> where T: Numeral + FromPrimitive + Signed {
     impl_from_primitive!(usize, from_usize);
     impl_from_primitive!(isize, from_isize);
     impl_from_primitive!(u8, from_u8);
@@ -72,7 +72,7 @@ impl<T> FromPrimitive for Quaternion<T> where T: Numeral + FromPrimitive {
     impl_from_primitive!(f64, from_f64);
 }
 
-impl<T> NumCast for Quaternion<T> where T: Numeral + NumCast {
+impl<T> NumCast for Quaternion<T> where T: Numeral + NumCast + Signed {
     fn from<U: ToPrimitive>(n: U) -> Option<Self> {
         T::from(n).map(|re| Quaternion {
             a:re,
@@ -85,7 +85,7 @@ impl<T> NumCast for Quaternion<T> where T: Numeral + NumCast {
 
 impl<T, U> AsPrimitive<U> for Quaternion<T>
 where
-    T: AsPrimitive<U> + Numeral,
+    T: AsPrimitive<U> + Numeral + Signed,
     U: 'static + Copy,
 {
     fn as_(self) -> U {
@@ -99,9 +99,9 @@ mod test {
 
     #[test]
     fn test_to_primitive() {
-        let a: Quaternion<u32> = Quaternion { a: 3, b: 0, c: 0, d: 0 };
+        let a: Quaternion<i32> = Quaternion { a: 3, b: 0, c: 0, d: 0 };
         assert_eq!(a.to_i32(), Some(3_i32));
-        let b: Quaternion<u32> = Quaternion { a: 3, b: 1, c: 0, d: 0 };
+        let b: Quaternion<i32> = Quaternion { a: 3, b: 1, c: 0, d: 0 };
         assert_eq!(b.to_i32(), None);
         let x: Quaternion<f32> = Quaternion { a: 1.0, b: 0.1, c: 0.0, d: 0.0 };
         assert_eq!(x.to_f32(), None);

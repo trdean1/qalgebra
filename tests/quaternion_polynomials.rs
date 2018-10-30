@@ -47,7 +47,7 @@ fn mul_basic() {
 }
 
 #[test]
-fn degree4_mul() {
+fn degree4_mul_i32() {
     let mut rng = thread_rng();
 
     let mut p1 = Polynomial::<Quaternion<i32>>::zeros( 4 );
@@ -56,7 +56,7 @@ fn degree4_mul() {
     let mut tmp1 = vec![0i32, 0, 0, 0];
     let mut tmp2 = vec![0i32, 0, 0, 0];
 
-    for i in 0 .. 50 {
+    for i in 0 .. 20 {
         println!("Test {}", i );
 
         for j in 0 .. 4 {
@@ -76,6 +76,52 @@ fn degree4_mul() {
         let plan_maybe = KaratsubaPlan::<Quaternion<i32>>::new_plan( 4 );
 
         let mut ka = Polynomial::<Quaternion<i32>>::with_capacity( 6 );
+
+        if let Ok(mut plan) = plan_maybe {
+            assert!( plan.execute_plan( &mut ka, &p1, &p2 ).is_ok() );
+            let gs = p1.gradeschool_mul( &p2 ); 
+
+            println!("Gradeschool: {}", gs );
+            println!("Karatsuba: {}", ka );
+            println!("Diff: {}", gs.clone() - ka.clone() );
+            assert!( ka.almost_eq( &gs ) );
+        } else {
+            assert!(false);
+        }
+        println!("\n\n");
+    }
+}
+
+#[test]
+fn degree4_mul_f32() {
+    let mut rng = thread_rng();
+
+    let mut p1 = Polynomial::<Quaternion<f32>>::zeros( 4 );
+    let mut p2 = Polynomial::<Quaternion<f32>>::zeros( 4 );
+
+    let mut tmp1 = vec![0.0f32, 0.0, 0.0, 0.0];
+    let mut tmp2 = vec![0.0f32, 0.0, 0.0, 0.0];
+
+    for i in 0 .. 20 {
+        println!("Test {}", i );
+
+        for j in 0 .. 4 {
+            for k in 0 .. 4 {
+                tmp1[k] = rng.gen_range( -1.0f32, 1.0f32 );
+                tmp2[k] = rng.gen_range( -1.0f32, 1.0f32 );
+            }
+            let qtmp1 = Quaternion::from_vec( &tmp1 );
+            let qtmp2 = Quaternion::from_vec( &tmp2 );
+            p1[j] = qtmp1;
+            p2[j] = qtmp2;
+        }
+
+        println!("p1 = {}", p1 );
+        println!("p2 = {}", p2 );
+
+        let plan_maybe = KaratsubaPlan::<Quaternion<f32>>::new_plan( 4 );
+
+        let mut ka = Polynomial::<Quaternion<f32>>::with_capacity( 6 );
 
         if let Ok(mut plan) = plan_maybe {
             assert!( plan.execute_plan( &mut ka, &p1, &p2 ).is_ok() );
