@@ -1,31 +1,33 @@
 use super::*;
 
+use std::ops::Neg;
+
 pub enum KaratsubaError {
     DegreeMismatch,
     NotPowerTwo,
 }
 
-pub struct KaratsubaPlan<T: Numeral + Signed> {
+pub struct KaratsubaPlan<T: Numeral + Neg> {
     n: usize,
     a: Polynomial<T>,
     b: Polynomial<T>,
     layers: Vec<KaratsubaLayer<T>>,
 }
 
-pub struct KaratsubaLayer<T: Numeral + Signed> {
+pub struct KaratsubaLayer<T: Numeral + Neg> {
     chunks_a: Vec<KaratsubaChunk<T>>,
     chunks_b: Vec<KaratsubaChunk<T>>,
     results: Vec<KaratsubaChunk<T>>,
 }
 
-pub struct KaratsubaChunk<T: Numeral + Signed> {
+pub struct KaratsubaChunk<T: Numeral + Neg> {
     pub upper: Polynomial<T>,
     pub lower: Polynomial<T>,
     pub sum: Polynomial<T>,
     n: usize,
 }
 
-impl<T> KaratsubaLayer<T> where T: Numeral + Signed {
+impl<T> KaratsubaLayer<T> where T: Numeral + Neg {
     /// Create a polynomial with an empty coefficient vector that has
     /// space allocated for n coefficients
     pub fn with_capacity( num_chunks: usize, chunk_size: usize ) -> KaratsubaLayer<T> {
@@ -44,7 +46,7 @@ impl<T> KaratsubaLayer<T> where T: Numeral + Signed {
     }
 }
 
-impl<T> KaratsubaChunk<T> where T: Numeral + Signed {
+impl<T> KaratsubaChunk<T> where T: Numeral + Neg {
     /// Create a polynomial with an empty coefficient vector that has
     /// space allocated for n coefficients.  Creates a coefficient of 0 in the
     /// zeroth order term
@@ -78,7 +80,7 @@ impl<T> KaratsubaChunk<T> where T: Numeral + Signed {
 }
 
 
-impl<T> KaratsubaPlan<T> where T: Numeral + Signed {
+impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
     pub fn new_plan( n: usize ) -> Result<KaratsubaPlan<T>, KaratsubaError> {
         //For now, start with the simple case where a and b have the same degree which
         //is one minus a power of two.
@@ -239,7 +241,7 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Signed {
 // fmt 
 //////////////////////////////////////////////////////////////
 
-impl<T> fmt::Display for KaratsubaPlan<T> where T: Numeral + Signed { 
+impl<T> fmt::Display for KaratsubaPlan<T> where T: Numeral + Neg { 
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         s += &format!("Karatsuba Plan, n={}\n", self.n);
@@ -255,7 +257,7 @@ impl<T> fmt::Display for KaratsubaPlan<T> where T: Numeral + Signed {
     }
 } 
 
-impl<T> fmt::Display for KaratsubaLayer<T> where T: Numeral + Signed {
+impl<T> fmt::Display for KaratsubaLayer<T> where T: Numeral + Neg {
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         for i in 0 .. self.chunks_a.len() {
@@ -277,7 +279,7 @@ impl<T> fmt::Display for KaratsubaLayer<T> where T: Numeral + Signed {
     }
 }
 
-impl<T> fmt::Display for KaratsubaChunk<T> where T: Numeral + Signed {
+impl<T> fmt::Display for KaratsubaChunk<T> where T: Numeral + Neg {
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         s += &format!("\t\tUpper: {}\n", self.upper );

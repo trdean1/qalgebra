@@ -16,8 +16,6 @@ use std::fmt;
 use num_traits::{Num,NumAssign,NumAssignOps};
 use num_traits::sign::Signed;
 
-
-
 pub trait Numeral: Copy + Clone + 
                    Num + NumAssign + NumAssignOps + 
                    std::fmt::Display { }
@@ -366,7 +364,7 @@ impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
     }
 }
 
-impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral + Signed {
+impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral {
     fn sub_assign( &mut self, rhs: Polynomial<T> ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {
@@ -380,7 +378,7 @@ impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral + Signed {
     }
 }
 
-impl<T> std::ops::Sub for Polynomial<T> where T: Numeral + Signed {
+impl<T> std::ops::Sub for Polynomial<T> where T: Numeral {
     type Output = Polynomial<T>;
 
     fn sub ( self, rhs: Polynomial<T> ) -> Polynomial<T> {
@@ -490,7 +488,7 @@ impl<'a, T> std::ops::AddAssign<&'a Polynomial<T>> for Polynomial<T> where T: Nu
     }
 }
 
-impl<'a, T> std::ops::SubAssign<&'a Polynomial<T>> for Polynomial<T> where T: Numeral + Signed {
+impl<'a, T> std::ops::SubAssign<&'a Polynomial<T>> for Polynomial<T> where T: Numeral {
     fn sub_assign( &mut self, rhs: &'a Polynomial<T> ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {

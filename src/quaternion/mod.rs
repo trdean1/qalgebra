@@ -4,14 +4,17 @@ extern crate test;
 use std::arch::x86_64::*;
 use std;
 use std::fmt;
-use Numeral;
+use std::error::Error;
 use num_traits::sign::Signed;
-use num_traits::{Zero,One};
+use num_traits::{Num,Zero,One};
 use num_traits::cast::ToPrimitive;
 
+use Numeral;
 use AlmostEq;
 
-#[derive(Copy, Clone)]
+mod cast;
+
+#[derive(Copy, Clone, Debug)]
 pub struct Quaternion<T: Numeral>{
     a: T,
     b: T,
@@ -57,6 +60,10 @@ impl<T> Zero for Quaternion<T> where T: Numeral {
         self.c.is_zero() && self.d.is_zero()
     }
 }
+
+/////////////////////////////////////////////////////////////////
+/// Misc Traits
+/////////////////////////////////////////////////////////////////
 
 impl<T> One for Quaternion<T> where T: Numeral {
     fn one() -> Quaternion<T> {
@@ -115,6 +122,15 @@ impl<T> fmt::Display for Quaternion<T> where T: Numeral {
         s += &format!("({} + {}*I + {}*J + {}*K)", self.a, self.b, 
                                                    self.c, self.d);
         write!(f, "{}", s)
+    }
+}
+
+impl<T> Num for Quaternion<T> where T: Numeral + Signed {
+    type FromStrRadixErr = ParseQuaternionError<T::FromStrRadixErr>;
+
+    /// Parses `a +/- bi`; `ai +/- b`; `a`; or `bi` where `a` and `b` are of type `T`
+    fn from_str_radix(_s: &str, _radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+        Err( ParseQuaternionError { kind: QuaternionErrorKind::NotImplementedError } ) 
     }
 }
 
@@ -320,6 +336,7 @@ impl<T> std::ops::Div for Quaternion<T> where T: Numeral + Signed {
 
 //This actaully tkes the same amount of time as the unoverloaded div
 //so it probably only saves in terms of code length
+#[cfg(target_arch="x86_64")]
 impl std::ops::Div for Quaternion<f32> {
     #[inline(always)]
     default fn div( self, rhs: Quaternion<f32> ) -> Quaternion<f32> {
@@ -380,6 +397,80 @@ impl<T> std::ops::DivAssign for Quaternion<T> where T: Numeral + Signed {
     }
 }
 
+// Attempts to identify the quaternion equivalent of a gaussian integer
+// whose product with `modulus` is closest to `self`.
+impl<T> std::ops::Rem for Quaternion<T> where T: Numeral + Signed {
+    type Output = Quaternion<T>;
+
+    #[inline]
+    fn rem(self, modulus: Quaternion<T>) -> Self {
+        let Quaternion { a, b, c, d } = self.clone() / modulus.clone();
+        // This is the gaussian integer corresponding to the true ratio
+        // rounded towards zero.
+        let (a0, b0, c0, d0) = (a.clone() - a % T::one(), b.clone() - b % T::one(), 
+                                c.clone() - c % T::one(), d.clone() - d % T::one() );
+
+        self - modulus * Quaternion::from_vals(a0, b0, c0, d0)
+    }
+}
+
+impl<T> std::ops::RemAssign for Quaternion<T> where T: Numeral + Signed {
+    fn rem_assign( &mut self, modulus: Quaternion<T> ) {
+        *self = *self % modulus;
+    }
+}
+
+/////////////////////////////////////////////////////////////////
+/// Parse Errors 
+/////////////////////////////////////////////////////////////////
+
+#[derive(Debug, PartialEq)]
+pub struct ParseQuaternionError<E> {
+    kind: QuaternionErrorKind<E>,
+}
+
+#[derive(Debug, PartialEq)]
+#[allow(dead_code)]
+enum QuaternionErrorKind<E> {
+    ParseError(E),
+    ExprError,
+    NotImplementedError,
+}
+
+#[allow(dead_code)]
+impl<E> ParseQuaternionError<E> {
+    fn new() -> Self {
+        ParseQuaternionError {
+            kind: QuaternionErrorKind::ExprError,
+        }
+    }
+
+    fn from_error(error: E) -> Self {
+        ParseQuaternionError {
+            kind: QuaternionErrorKind::ParseError(error),
+        }
+    }
+}
+
+impl<E: Error> Error for ParseQuaternionError<E> {
+    fn description(&self) -> &str {
+        match self.kind {
+            QuaternionErrorKind::ParseError(ref e) => e.description(),
+            QuaternionErrorKind::ExprError => "invalid or unsupported complex expression",
+            QuaternionErrorKind::NotImplementedError => "not yet implemented",
+        }
+    }
+}
+
+impl<E: fmt::Display> fmt::Display for ParseQuaternionError<E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            QuaternionErrorKind::ParseError(ref e) => e.fmt(f),
+            QuaternionErrorKind::ExprError => "invalid or unsupported complex expression".fmt(f),
+            QuaternionErrorKind::NotImplementedError => "not yet implemented".fmt(f),
+        }
+    }
+}
 
 /////////////////////////////////////////////////////////////////
 /// Unit Tests 
