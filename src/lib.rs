@@ -17,6 +17,7 @@ use num_traits::{Num,NumAssign,NumAssignOps};
 use num_traits::sign::Signed;
 
 
+
 pub trait Numeral: Copy + Clone + 
                    Num + NumAssign + NumAssignOps + 
                    std::fmt::Display { }

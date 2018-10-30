@@ -7,6 +7,7 @@ use std::fmt;
 use Numeral;
 use num_traits::sign::Signed;
 use num_traits::{Zero,One};
+use num_traits::cast::ToPrimitive;
 
 use AlmostEq;
 
@@ -73,6 +74,50 @@ impl<T> One for Quaternion<T> where T: Numeral {
     }
 }
 
+impl<T> std::cmp::PartialEq for Quaternion<T> where T: Numeral {
+    fn eq( &self, other: &Quaternion<T>) -> bool {
+        self.a == other.a && self.b == other.b &&
+        self.c == other.c && self.d == other.d
+    }
+}
+
+impl<T> AlmostEq for Quaternion<T> where T: Numeral + ToPrimitive {
+    fn almost_eq( &self, other: &Quaternion<T> ) -> bool {
+        let norm_diff = (*self - *other).norm();
+        if norm_diff < 1e-7 {
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+
+trait Norm<T> {
+    fn norm( self ) -> f64;
+}
+
+impl<T> Norm<T> for Quaternion<T> where T: Numeral + ToPrimitive {
+    fn norm( self ) -> f64 {
+        let norm_sq = self.a * self.a + self.b * self.b + 
+                      self.c * self.c + self.d * self.d;
+        let nf64_maybe = norm_sq.to_f64();
+        if let Some(norm_sq) = nf64_maybe {
+            return norm_sq.sqrt();
+        } else {
+            return std::f64::NAN;
+        }
+    }
+}
+
+impl<T> fmt::Display for Quaternion<T> where T: Numeral {
+    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut s = String::new();
+        s += &format!("({} + {}*I + {}*J + {}*K)", self.a, self.b, 
+                                                   self.c, self.d);
+        write!(f, "{}", s)
+    }
+}
+
 /////////////////////////////////////////////////////////////////
 /// Scalar operations
 /////////////////////////////////////////////////////////////////
@@ -116,14 +161,17 @@ impl ScalarOps<f32> for Quaternion<f32> {
 
 //XXX: Should this return a quaternion rather than act mutably?
 trait Conjugate<T> {
-    fn conjugate( &mut self );
+    fn conjugate( self ) -> Self;
 }
 
 impl<T> Conjugate<T> for Quaternion<T> where T: Numeral + Signed {
-    fn conjugate( &mut self ) {
-        self.b = -self.b;
-        self.c = -self.c;
-        self.d = -self.d;
+    fn conjugate( self ) -> Quaternion<T> {
+        Quaternion {
+            a:  self.a,
+            b: -self.b,
+            c: -self.c,
+            d: -self.d,
+        }
     }
 }
 
@@ -191,7 +239,7 @@ impl<T> std::ops::Mul for Quaternion<T> where T: Numeral {
     default fn mul( self, rhs: Quaternion<T> ) -> Quaternion<T> {
     	let a = self.a * rhs.a - self.b * rhs.b - self.c * rhs.c - self.d * rhs.d;
 	    let b = self.a * rhs.b + self.b * rhs.a + self.c * rhs.d - self.d * rhs.c;
-	    let c = self.a * rhs.c - self.b * rhs.d + self.c * rhs.a - self.d * rhs.b;
+	    let c = self.a * rhs.c - self.b * rhs.d + self.c * rhs.a + self.d * rhs.b;
 	    let d = self.a * rhs.d + self.b * rhs.c - self.c * rhs.b + self.d * rhs.a;
 
         Quaternion {
@@ -229,10 +277,10 @@ impl std::ops::Mul for Quaternion<f32> {
         }
 
         Quaternion {
-            a: unpacked.3,
-            b: unpacked.2,
-            c: unpacked.1,
-            d: unpacked.0,
+            a: unpacked.0,
+            b: unpacked.1,
+            c: unpacked.2,
+            d: unpacked.3,
         }
     }
 }
@@ -240,6 +288,95 @@ impl std::ops::Mul for Quaternion<f32> {
 impl<T> std::ops::MulAssign for Quaternion<T> where  T: Numeral {
     fn mul_assign( &mut self, rhs: Quaternion<T> ) {
         *self = *self * rhs;
+    }
+}
+
+
+//XXX: Need to think through what generic multiplication should be.  In general,
+//it should be multiplication by the inverse of rhs, but inverse is hard to generalize.
+//This trades of generality for speed --- would be faster to multiply by inverse rather
+//than divide in final assignment but this wouldn't work for int's.  
+//Will override for floats anyways.  
+//Quaternions over Z+ are certainly not closed so I think requiring signed is fine
+impl<T> std::ops::Div for Quaternion<T> where T: Numeral + Signed {
+    type Output = Quaternion<T>;
+
+    default fn div( self, rhs: Quaternion<T> ) -> Quaternion<T> {
+        let rhs_conj = rhs.clone().conjugate();
+
+        let res = self * rhs_conj;
+
+        let norm_sq = rhs.a * rhs.a + rhs.b * rhs.b +
+                      rhs.c * rhs.c + rhs.d * rhs.d;
+
+        Quaternion {
+            a : res.a / norm_sq,
+            b : res.b / norm_sq,
+            c : res.c / norm_sq,
+            d : res.d / norm_sq,
+        }
+    }
+}
+
+//This actaully tkes the same amount of time as the unoverloaded div
+//so it probably only saves in terms of code length
+impl std::ops::Div for Quaternion<f32> {
+    #[inline(always)]
+    default fn div( self, rhs: Quaternion<f32> ) -> Quaternion<f32> {
+        let unpacked: (f32, f32, f32, f32);
+        unsafe {
+            let a = _mm_set_ps( self.d, self.c, self.b, self.a );
+            let mut b = _mm_set_ps( rhs.d, rhs.c, rhs.b, rhs.a );
+
+            //Conjugate b
+            let mask  = _mm_set_epi32(-2147483648i32,-2147483648i32,-2147483648i32,0); //Sign bits of lower three registers 
+            b = _mm_xor_ps(b, _mm_castsi128_ps(mask)); // flip sign bits    
+
+            //multiply a*conj(b)
+            let a1123 = _mm_shuffle_ps(a,a,0xE5);
+            let a2231 = _mm_shuffle_ps(a,a,0x7A);
+            let b1000 = _mm_shuffle_ps(b,b,0x01);
+            let b2312 = _mm_shuffle_ps(b,b,0x9E);
+            let t1    = _mm_mul_ps(a1123, b1000);
+            let t2    = _mm_mul_ps(a2231, b2312);
+            let t12   = _mm_add_ps(t1, t2);
+            let mask =_mm_set_epi32(0,0,0,-2147483648i32); //0x80000000
+            let t12m  = _mm_xor_ps(t12, _mm_castsi128_ps(mask)); // flip sign bits
+            let a3312 = _mm_shuffle_ps(a,a,0x9F);
+            let b3231 = _mm_shuffle_ps(b,b,0x7B);
+            let a0000 = _mm_shuffle_ps(a,a,0x00);
+            let t3    = _mm_mul_ps(a3312, b3231);
+            let t0    = _mm_mul_ps(a0000, b);
+            let t03   = _mm_sub_ps(t0, t3);
+            let prod  = _mm_add_ps(t03, t12m);
+
+            //Compute norm b
+            let bb = _mm_mul_ps( b, b ); //b^2
+
+            //Horizontal add of aa
+            let shuf = _mm_shuffle_ps ( bb, bb, 0x1b ); //reverse order
+            let sums = _mm_add_ps(bb, shuf); //0+3, 1+2, 1+2, 0+3
+            let swap = _mm_shuffle_ps( sums, sums, 0x4e); // high half -> low half
+            let normsq  = _mm_add_ps(sums, swap);
+
+            //Divide by norm --- WARNING: SLOW hard to avoid...it's division
+            let res = _mm_div_ps( prod, normsq );
+
+            unpacked = std::mem::transmute( res );
+        }
+
+        Quaternion {
+            a: unpacked.0,
+            b: unpacked.1,
+            c: unpacked.2,
+            d: unpacked.3
+        }
+    }
+}
+
+impl<T> std::ops::DivAssign for Quaternion<T> where T: Numeral + Signed {
+    fn div_assign(&mut self, rhs: Quaternion<T>) {
+        *self = *self / rhs;
     }
 }
 
@@ -273,12 +410,111 @@ mod tests {
     }
 
     #[test]
+    fn basic_sub() {
+        let mut a = Quaternion::from_vals( 1.0f32, -2.0, 3.0, -4.0 );
+        let bvec = vec![1.0f32, 1.0, 1.0, 1.0];
+        let b = Quaternion::from_vec( &bvec );
+
+        a -= b;
+        
+        let mut res = a.to_vec();
+        let mut tv = vec![0.0f32, -3.0, 2.0, -5.0];
+        assert!(res.iter().zip(tv).all( |(x,y)| (x - y).abs() < 1e-9 ));
+
+        a = a - b;
+
+        res = a.to_vec();
+        tv = vec![-1.0f32, -4.0, 1.0, -6.0];
+        assert!(res.iter().zip(tv).all( |(x,y)| (x - y).abs() < 1e-9 ));
+    }
+
+    #[test]
+    fn basic_mul32() {
+        let bvec = vec![1.0f32, 2.0, 3.0, 4.0];
+        let mut a = Quaternion::from_vals( 2.0, 2.0, 2.0, 2.0 );
+        let mut b = Quaternion::from_vec( &bvec );
+
+        a *= b;
+        
+        let mut tv = Quaternion::from_vals( -16.0f32, 8.0, 4.0, 12.0 );
+
+        assert!( a.almost_eq( &tv ) );
+        
+        b = Quaternion::from_vals( -0.25, 0.125, 0.1, 0.125 );
+        a = a * b;
+
+        tv = Quaternion::from_vals( 1.1, -4.7, -2.1, -4.7 );
+
+        assert!( a.almost_eq(&tv) );
+    }
+
+    #[test]
+    fn basic_mul64() {
+        let bvec = vec![1.0f64, 2.0, 3.0, 4.0];
+        let mut a = Quaternion::from_vals( 2.0, 2.0, 2.0, 2.0 );
+        let mut b = Quaternion::from_vec( &bvec );
+
+        a *= b;
+        
+        let mut tv = Quaternion::from_vals( -16.0f64, 8.0, 4.0, 12.0 );
+
+        assert!( a.almost_eq( &tv ) );
+        
+        b = Quaternion::from_vals( -0.25, 0.125, 0.1, 0.125 );
+        a = a * b;
+
+        tv = Quaternion::from_vals( 1.1, -4.7, -2.1, -4.7 );
+
+        assert!( a.almost_eq(&tv) );
+    }
+
+    #[test]
+    fn basic_div32() {
+        let mut a = Quaternion::from_vals( 2.0f32, 2.0, 2.0, 2.0 );
+        let bvec = vec![1.0f32, 2.0, 3.0, 4.0];
+        let mut b = Quaternion::from_vec( &bvec );
+
+        a = a / b;
+        
+        let mut tv = Quaternion::from_vals(2.0f32/3.0, -2.0/15.0, 0.0, -4.0/15.0);
+        assert!( a.almost_eq( &tv ) );
+
+        b = Quaternion::from_vals( -0.25, 0.125, 0.1, 0.125 );
+        a /= b;
+        tv = Quaternion::from_vals(-520.0f32/249.0, -184.0/249.0, -40.0/83.0, -8.0/249.0);
+
+        println!(" a  = {}\n tv = {}", a, tv);
+        println!(" diff = {}", (a - tv).norm() );
+        assert! (a.almost_eq( &tv ) );
+    }
+
+    #[test]
+    fn basic_div64() {
+        let mut a = Quaternion::from_vals( 2.0f64, 2.0, 2.0, 2.0 );
+        let bvec = vec![1.0f64, 2.0, 3.0, 4.0];
+        let mut b = Quaternion::from_vec( &bvec );
+
+        a = a / b;
+        
+        let mut tv = Quaternion::from_vals(2.0f64/3.0, -2.0/15.0, 0.0, -4.0/15.0);
+        assert!( a.almost_eq( &tv ) );
+
+        b = Quaternion::from_vals( -0.25, 0.125, 0.1, 0.125 );
+        a /= b;
+        tv = Quaternion::from_vals(-520.0f64/249.0, -184.0/249.0, -40.0/83.0, -8.0/249.0);
+
+        println!(" a  = {}\n tv = {}", a, tv);
+        println!(" diff = {}", (a - tv).norm() );
+        assert! (a.almost_eq( &tv ) );
+    }
+
+    #[test]
     fn conjugate() {
-        let mut a = Quaternion::from_vals( 1.0, 1.0, 1.0, 1.0 );
-        a.conjugate();
+        let a = Quaternion::from_vals( 1.0, 1.0, 1.0, 1.0 );
+        let b = a.conjugate();
 
         let tv = vec![1.0f32, -1.0, -1.0, -1.0];
-        assert!( a.to_vec().iter().zip(tv).all( |(x,y)| (x - y).abs() < 1e-9 ));
+        assert!( b.to_vec().iter().zip(tv).all( |(x,y)| (x - y).abs() < 1e-9 ));
     }
 
     #[bench]
@@ -297,6 +533,24 @@ mod tests {
                                        0.5597722931244762, 0.2132465878569433 );
 
         b.iter(|| x *= y )
+    }
+
+    #[bench]
+    fn div_f64(b: &mut Bencher) {
+        let mut x = Quaternion::from_vals( 0.5f64, -0.5, 0.5, -0.5 );
+        let y = Quaternion::from_vals( 0.5725695175851593f64, 0.5597722931244762, 
+                                       0.5597722931244762, 0.2132465878569433 );
+
+        b.iter(|| x /= y )
+    }
+
+    #[bench]
+    fn div_f32(b: &mut Bencher) {
+        let mut x = Quaternion::from_vals( 0.5f32, -0.5, 0.5, -0.5 );
+        let y = Quaternion::from_vals( 0.5725695175851593f32, 0.5597722931244762, 
+                                       0.5597722931244762, 0.2132465878569433 );
+
+        b.iter(|| x /= y )
     }
 }
 
