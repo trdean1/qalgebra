@@ -6,6 +6,7 @@ use std;
 use std::fmt;
 use Numeral;
 use num_traits::sign::Signed;
+use num_traits::{Zero,One};
 
 use AlmostEq;
 
@@ -37,6 +38,38 @@ impl<T> Quaternion<T> where T: Numeral {
 
     pub fn to_vec ( self ) -> Vec<T> {
         vec![self.a, self.b, self.c, self.d]
+    }
+}
+
+impl<T> Zero for Quaternion<T> where T: Numeral {
+    fn zero() -> Quaternion<T> {
+        Quaternion {
+            a: T::zero(),
+            b: T::zero(),
+            c: T::zero(),
+            d: T::zero(),
+        }
+    }
+
+    fn is_zero(&self) -> bool {
+        self.a.is_zero() && self.b.is_zero() &&
+        self.c.is_zero() && self.d.is_zero()
+    }
+}
+
+impl<T> One for Quaternion<T> where T: Numeral {
+    fn one() -> Quaternion<T> {
+        Quaternion {
+            a: T::one(),
+            b: T::zero(),
+            c: T::zero(),
+            d: T::zero(),
+        }
+    }
+
+    fn is_one(&self) -> bool {
+        self.a.is_one() && self.b.is_zero() &&
+        self.c.is_zero() && self.d.is_zero()
     }
 }
 
@@ -78,9 +111,10 @@ impl ScalarOps<f32> for Quaternion<f32> {
 }
 
 /////////////////////////////////////////////////////////////////
-/// Conjugation
+/// Conjugation and Negation
 /////////////////////////////////////////////////////////////////
 
+//XXX: Should this return a quaternion rather than act mutably?
 trait Conjugate<T> {
     fn conjugate( &mut self );
 }
@@ -90,6 +124,22 @@ impl<T> Conjugate<T> for Quaternion<T> where T: Numeral + Signed {
         self.b = -self.b;
         self.c = -self.c;
         self.d = -self.d;
+    }
+}
+
+impl<T> std::ops::Neg for Quaternion<T> where T: Numeral + 
+                                                 std::ops::Neg + 
+                                                 std::ops::Neg<Output=T> {
+    type Output = Quaternion<T>;
+
+    #[inline(always)]
+    fn neg(self) -> Quaternion<T> {
+        Quaternion {
+            a: -self.a,
+            b: -self.b,
+            c: -self.c,
+            d: -self.d,
+        }
     }
 }
 
@@ -113,6 +163,25 @@ impl<T> std::ops::Add for Quaternion<T> where T: Numeral {
 impl<T> std::ops::AddAssign for Quaternion<T> where T: Numeral {
     fn add_assign(&mut self, rhs: Quaternion<T>) {
         *self = *self + rhs;
+    }
+}
+
+impl<T> std::ops::Sub for Quaternion<T> where T: Numeral {
+    type Output = Quaternion<T>;
+
+    fn sub(self, rhs: Quaternion<T>) -> Quaternion<T> {
+        Quaternion {
+            a: self.a - rhs.a,
+            b: self.b - rhs.b,
+            c: self.c - rhs.c,
+            d: self.d - rhs.d,
+        }
+    }
+}
+
+impl<T> std::ops::SubAssign for Quaternion<T> where T: Numeral {
+    fn sub_assign(&mut self, rhs: Quaternion<T>) {
+        *self = *self - rhs;
     }
 }
 
