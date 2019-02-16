@@ -234,7 +234,7 @@ impl IntPolynomial {
 
     /// Same as above but using rug
     /// If we know the degree (we should if we are multiplying) then we can pass it in
-    /// to save Self
+    /// to save time
     pub fn unpack_rug( v: Integer, bits_per: u32, degree_maybe: Option<usize> ) -> Self {
         let mut coeffs = Vec::<u32>::new();
         if degree_maybe.is_some() {
