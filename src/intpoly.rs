@@ -392,7 +392,7 @@ impl<'a> IntoIterator for &'a IntPolynomial {
     type IntoIter = RefIntPolynomialIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        RefIntPolynomialIterator {
+        Self::IntoIter {
             polynomial: self,
             index: 0,
         }

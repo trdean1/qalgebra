@@ -122,7 +122,7 @@ impl<T> Polynomial<T> where T: Numeral {
         }
 
         if has_rem {
-            let mut p = Polynomial::<T>::from_vec( &remainder );
+            let mut p = Self::<T>::from_vec( &remainder );
             p.trim();
 
             return Some(p);
@@ -148,8 +148,8 @@ impl<T> Polynomial<T> where T: Numeral {
             large = self;
         }
 
-        let mut result = Polynomial::<T>::zeros( outdegree );
-        let mut tmp = Polynomial::<T>::with_capacity( large.degree()+1 );
+        let mut result = Self::<T>::zeros( outdegree );
+        let mut tmp = Self::<T>::with_capacity( large.degree()+1 );
         for (i, c) in small.into_iter().enumerate() {
             if c != T::zero() {
                 tmp.copy_from( large );
@@ -349,7 +349,7 @@ impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
             rhs.degree() + 1
         };
 
-        let mut result = Polynomial::<T>::zeros( maxdeg );
+        let mut result = Self::<T>::zeros( maxdeg );
 
         for i in 0 .. maxdeg {
             if i < self.degree() + 1 {
@@ -382,11 +382,7 @@ impl<T> std::ops::Sub for Polynomial<T> where T: Numeral {
     type Output = Self;
 
     fn sub ( self, rhs: Self ) -> Self::Output {
-        let maxdeg = if self.degree() > rhs.degree() { 
-            self.degree() + 1
-        } else {
-            rhs.degree() + 1
-        };
+        let maxdeg = self.degree().max( rhs.degree() ) + 1;
 
         let mut result = Self::zeros( maxdeg );
 
