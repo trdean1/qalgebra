@@ -30,11 +30,11 @@ pub struct KaratsubaChunk<T: Numeral + Neg> {
 impl<T> KaratsubaLayer<T> where T: Numeral + Neg {
     /// Create a polynomial with an empty coefficient vector that has
     /// space allocated for n coefficients
-    pub fn with_capacity( num_chunks: usize, chunk_size: usize ) -> KaratsubaLayer<T> {
+    pub fn with_capacity( num_chunks: usize, chunk_size: usize ) -> Self {
         let chunks_a = Vec::<KaratsubaChunk<T>>::with_capacity( num_chunks );
         let chunks_b = Vec::<KaratsubaChunk<T>>::with_capacity( num_chunks );
         let results  = Vec::<KaratsubaChunk<T>>::with_capacity( num_chunks );
-        let mut layer = KaratsubaLayer { chunks_a, chunks_b, results };
+        let mut layer = Self { chunks_a, chunks_b, results };
 
         for _ in 0 .. num_chunks {
             layer.chunks_a.push( KaratsubaChunk::<T>::zeros( chunk_size ) );
@@ -50,8 +50,8 @@ impl<T> KaratsubaChunk<T> where T: Numeral + Neg {
     /// Create a polynomial with an empty coefficient vector that has
     /// space allocated for n coefficients.  Creates a coefficient of 0 in the
     /// zeroth order term
-    pub fn with_capacity( n: usize ) -> KaratsubaChunk<T> {
-        let mut res = KaratsubaChunk {
+    pub fn with_capacity( n: usize ) -> Self {
+        let mut res = Self {
             upper: Polynomial::<T>::with_capacity( n ),
             lower: Polynomial::<T>::with_capacity( n ),
             sum:   Polynomial::<T>::with_capacity( n ),
@@ -65,8 +65,8 @@ impl<T> KaratsubaChunk<T> where T: Numeral + Neg {
         res
     }
 
-    pub fn zeros( n: usize ) -> KaratsubaChunk<T> {
-        KaratsubaChunk {
+    pub fn zeros( n: usize ) -> Self {
+        Self {
             upper: Polynomial::<T>::zeros( n ),
             lower: Polynomial::<T>::zeros( n ),
             sum:   Polynomial::<T>::zeros( n ),
@@ -81,7 +81,7 @@ impl<T> KaratsubaChunk<T> where T: Numeral + Neg {
 
 
 impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
-    pub fn new_plan( n: usize ) -> Result<KaratsubaPlan<T>, KaratsubaError> {
+    pub fn new_plan( n: usize ) -> Result<Self, KaratsubaError> {
         //For now, start with the simple case where a and b have the same degree which
         //is one minus a power of two.
         
@@ -104,7 +104,7 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
         let a = Polynomial::<T>::with_capacity( n );
         let b = Polynomial::<T>::with_capacity( n );
 
-        Ok( KaratsubaPlan{ n, a, b, layers } )
+        Ok( Self{ n, a, b, layers } )
     }
 
     pub fn execute_plan( &mut self, result: &mut Polynomial<T>, a: &Polynomial<T>, b: &Polynomial<T>  ) 
@@ -126,8 +126,8 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
         for i in 0..self.layers.len() {
             let l = 2usize.pow( (num_layers - i) as u32 );
             if i == 0 {
-                KaratsubaPlan::split_and_sum_to( a, &mut self.layers[0].chunks_a[0], l );
-                KaratsubaPlan::split_and_sum_to( b, &mut self.layers[0].chunks_b[0], l );
+                Self::split_and_sum_to( a, &mut self.layers[0].chunks_a[0], l );
+                Self::split_and_sum_to( b, &mut self.layers[0].chunks_b[0], l );
             }  else {
                 let num_chunks_last = self.layers[i-1].chunks_a.len();
 
@@ -141,13 +141,13 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
 
 
                 for j in 0 .. num_chunks_last {
-                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_a[j].upper, &mut current[0].chunks_a[3*j  ], l );
-                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_a[j].lower, &mut current[0].chunks_a[3*j+1], l );
-                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_a[j].sum  , &mut current[0].chunks_a[3*j+2], l );
+                    Self::split_and_sum_to( &last[i-1].chunks_a[j].upper, &mut current[0].chunks_a[3*j  ], l );
+                    Self::split_and_sum_to( &last[i-1].chunks_a[j].lower, &mut current[0].chunks_a[3*j+1], l );
+                    Self::split_and_sum_to( &last[i-1].chunks_a[j].sum  , &mut current[0].chunks_a[3*j+2], l );
 
-                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_b[j].upper, &mut current[0].chunks_b[3*j  ], l );
-                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_b[j].lower ,&mut current[0].chunks_b[3*j+1], l );
-                    KaratsubaPlan::split_and_sum_to( &last[i-1].chunks_b[j].sum  , &mut current[0].chunks_b[3*j+2], l );
+                    Self::split_and_sum_to( &last[i-1].chunks_b[j].upper, &mut current[0].chunks_b[3*j  ], l );
+                    Self::split_and_sum_to( &last[i-1].chunks_b[j].lower ,&mut current[0].chunks_b[3*j+1], l );
+                    Self::split_and_sum_to( &last[i-1].chunks_b[j].sum  , &mut current[0].chunks_b[3*j+2], l );
                 }
             } 
         }
@@ -162,24 +162,24 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
             let l = 2usize.pow( (num_layers - i) as u32 );
             for j in 0 .. num_chunks_parent {
                 if i == num_layers - 1 {
-                    KaratsubaPlan::combine_chunk_base( &current[0].chunks_a[3*j], 
+                    Self::combine_chunk_base( &current[0].chunks_a[3*j],
                                                        &current[0].chunks_b[3*j], 
                                                        &mut parent[i-1].results[j].upper );
-                    KaratsubaPlan::combine_chunk_base( &current[0].chunks_a[3*j+1], 
+                    Self::combine_chunk_base( &current[0].chunks_a[3*j+1],
                                                        &current[0].chunks_b[3*j+1], 
                                                        &mut parent[i-1].results[j].lower );
-                    KaratsubaPlan::combine_chunk_base( &current[0].chunks_a[3*j+2], 
+                    Self::combine_chunk_base( &current[0].chunks_a[3*j+2],
                                                        &current[0].chunks_b[3*j+2], 
                                                        &mut parent[i-1].results[j].sum );
                 } else {
-                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j], &mut parent[i-1].results[j].upper, l );
-                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j+1], &mut parent[i-1].results[j].lower, l );
-                    KaratsubaPlan::combine_chunk_to( &current[0].results[3*j+2], &mut parent[i-1].results[j].sum, l );
+                    Self::combine_chunk_to( &current[0].results[3*j], &mut parent[i-1].results[j].upper, l );
+                    Self::combine_chunk_to( &current[0].results[3*j+1], &mut parent[i-1].results[j].lower, l );
+                    Self::combine_chunk_to( &current[0].results[3*j+2], &mut parent[i-1].results[j].sum, l );
                 }
             }
         }
 
-        KaratsubaPlan::combine_chunk_to( &self.layers[0].results[0], 
+        Self::combine_chunk_to( &self.layers[0].results[0],
                                          result, 
                                          2usize.pow( num_layers as u32 ) );
 

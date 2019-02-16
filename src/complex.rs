@@ -12,8 +12,8 @@ pub struct ComplexSIMD64 {
 }
 
 impl ComplexSIMD64 {
-    pub fn from_vals( a: f64, b: f64 ) -> ComplexSIMD64 {
-        ComplexSIMD64 {
+    pub fn from_vals( a: f64, b: f64 ) -> Self {
+        Self {
             pb: unsafe{ _mm_set_pd( b, a ) }
         }
     }
@@ -21,7 +21,7 @@ impl ComplexSIMD64 {
 
 impl std::ops::MulAssign for ComplexSIMD64 {
     #[inline(always)]
-    fn mul_assign( &mut self, rhs: ComplexSIMD64) {
+    fn mul_assign( &mut self, rhs: Self) {
         unsafe {
             let mut num1 = _mm_shuffle_pd( self.pb, self.pb, 0 ); //load real part
             let mut num2 = _mm_mul_pd( rhs.pb, num1 ); // y.re * x.re + y.im * x.re
@@ -39,8 +39,8 @@ pub struct ComplexSIMD32 {
 }
 
 impl ComplexSIMD32 {
-    pub fn from_vals( a: f32, b: f32 ) -> ComplexSIMD32 {
-        ComplexSIMD32 {
+    pub fn from_vals( a: f32, b: f32 ) -> Self {
+        Self {
             pb: unsafe{ _mm_set_ps( 0.0f32, 0.0f32, b, a ) }
         }
     }
@@ -60,7 +60,7 @@ impl ComplexSIMD32 {
 
 impl std::ops::MulAssign for ComplexSIMD32 {
     #[inline(always)]
-    fn mul_assign( &mut self, rhs: ComplexSIMD32) {
+    fn mul_assign( &mut self, rhs: Self) {
         let x = self.pb;
         let y = rhs.pb;
         unsafe {

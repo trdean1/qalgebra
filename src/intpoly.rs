@@ -15,25 +15,25 @@ pub struct IntPolynomial {
 
 impl IntPolynomial {
     /// Create polynomial from vector.  v[0] is degree zero term
-    pub fn from_vec(v: &Vec<u32>) -> IntPolynomial {
-        IntPolynomial { 
+    pub fn from_vec(v: &Vec<u32>) -> Self {
+        Self {
             coefficients : v.clone()
         }
     }
 
     /// Create a polynomial with an empty coefficient vector that has
     /// space allocated for n coefficients
-    pub fn with_capacity( n: usize ) -> IntPolynomial {
+    pub fn with_capacity( n: usize ) -> Self {
         let v = Vec::with_capacity( n );
-        IntPolynomial {
+        Self {
             coefficients : v
         }
     }
 
     /// Create a polynomial with all n zero coefficients
-    pub fn zeros( n: usize ) -> IntPolynomial {
+    pub fn zeros( n: usize ) -> Self {
         let v = vec![0; n];
-        IntPolynomial {
+        Self {
             coefficients : v
         }
     }
@@ -49,7 +49,6 @@ impl IntPolynomial {
             if self.coefficients.pop().is_none() {
                 break;
             }
-
         }
     }
 
@@ -68,7 +67,7 @@ impl IntPolynomial {
     }
 
     /// Divide by x^n...shift down n slots and return remainder if not zero
-    pub fn xn_divide( &mut self, n: usize) -> Option<IntPolynomial> {
+    pub fn xn_divide( &mut self, n: usize) -> Option<Self> {
         let mut remainder = vec![0; n];
         let mut has_rem = false;
         for i in 0..n {
@@ -77,7 +76,7 @@ impl IntPolynomial {
         }
 
         if has_rem {
-            let mut p = IntPolynomial::from_vec( &remainder );
+            let mut p = Self::from_vec( &remainder );
             p.trim();
 
             return Some(p);
@@ -104,7 +103,7 @@ impl IntPolynomial {
 
     /// multiply self by rhs returning a new polynomial.  Uses gradeschool multiplication
     /// which is slow unless degree is really small
-    pub fn gradeschool_mul( &self, rhs: &IntPolynomial ) -> IntPolynomial {
+    pub fn gradeschool_mul( &self, rhs: &Self ) -> Self {
         let ldegree = self.degree();
         let rdegree = rhs.degree();
         let outdegree = ldegree + rdegree;
@@ -119,7 +118,7 @@ impl IntPolynomial {
             large = self;
         }
 
-        let mut result = IntPolynomial::zeros( outdegree );
+        let mut result = Self::zeros( outdegree );
         for (i, c) in small.into_iter().enumerate() {
             //XXX Not sure if rust is smart enough to save memory of tmp each loop?
             let mut tmp = large.to_owned();
@@ -133,7 +132,7 @@ impl IntPolynomial {
 
     /// Multiplies self by rhs creating a new polynomial.  Uses Kronecker substitution.
     /// Calls rug crate (which then call GMP) for arbitrary precision integer multipication
-    pub fn kronecker_mul ( &self, rhs: &IntPolynomial ) -> IntPolynomial {
+    pub fn kronecker_mul ( &self, rhs: &Self ) -> Self {
         let bits_per = self.kronecker_coeff_bits( rhs );
 
         let degree = self.degree() + rhs.degree() + 2;
@@ -145,7 +144,7 @@ impl IntPolynomial {
         if bits_total <= 64 {
             let packed_product = self.pack_small( bits_per ) * rhs.pack_small( bits_per );
 
-            product = IntPolynomial::unpack_small( packed_product, bits_per )
+            product = Self::unpack_small( packed_product, bits_per )
         } else {
             let packed_self = self.pack_rug( bits_per );
             let packed_rhs = rhs.pack_rug( bits_per );
@@ -153,7 +152,7 @@ impl IntPolynomial {
             let mut packed_product = Integer::new();
             packed_product.assign( packed_product_incomplete );
 
-            product = IntPolynomial::unpack_rug( packed_product, bits_per, Some(degree) );
+            product = Self::unpack_rug( packed_product, bits_per, Some(degree) );
         }
 
         return product;
@@ -161,7 +160,7 @@ impl IntPolynomial {
 
     /// Find the maximum number of bits each coefficient of the product of self and rhs
     /// can contain
-    pub fn kronecker_coeff_bits( &self, rhs: &IntPolynomial ) -> u32 {
+    pub fn kronecker_coeff_bits( &self, rhs: &Self ) -> u32 {
         let mut largest_c = 0;
         for c in self {
             if c > largest_c {
@@ -214,7 +213,7 @@ impl IntPolynomial {
 
     /// Unpack a 64-bit int into a (small) polynomial by assuming it was evaluated at
     /// 2^bits_per
-    pub fn unpack_small( v: u64, bits_per: u32 ) -> IntPolynomial {
+    pub fn unpack_small( v: u64, bits_per: u32 ) -> Self {
         let max_coeffs = 64 / bits_per;
         let mut coeffs = Vec::<u32>::with_capacity( max_coeffs as usize );
         let mut vv = v;
@@ -228,15 +227,15 @@ impl IntPolynomial {
             }
         }
 
-        IntPolynomial {
+        Self {
             coefficients: coeffs
         }
     }
 
     /// Same as above but using rug
     /// If we know the degree (we should if we are multiplying) then we can pass it in
-    /// to save time
-    pub fn unpack_rug( v: Integer, bits_per: u32, degree_maybe: Option<usize> ) -> IntPolynomial {
+    /// to save Self
+    pub fn unpack_rug( v: Integer, bits_per: u32, degree_maybe: Option<usize> ) -> Self {
         let mut coeffs = Vec::<u32>::new();
         if degree_maybe.is_some() {
             coeffs.reserve( degree_maybe.unwrap() + 1 );
@@ -253,7 +252,7 @@ impl IntPolynomial {
             vv >>= bits_per;
         }
 
-        IntPolynomial {
+        Self {
             coefficients: coeffs
         }
     }
@@ -316,7 +315,7 @@ impl std::ops::IndexMut<usize> for IntPolynomial {
 }
 
 impl std::ops::AddAssign for IntPolynomial {
-    fn add_assign( &mut self, rhs: IntPolynomial ) {
+    fn add_assign( &mut self, rhs: Self ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {
                 self[idx] += e;
@@ -330,16 +329,16 @@ impl std::ops::AddAssign for IntPolynomial {
 }
 
 impl std::ops::Add for IntPolynomial {
-    type Output = IntPolynomial;
+    type Output = Self;
 
-    fn add ( self, rhs: IntPolynomial ) -> IntPolynomial {
+    fn add ( self, rhs: Self ) -> Self::Output {
         let maxdeg = if self.degree() > rhs.degree() { 
             self.degree() + 1
         } else {
             rhs.degree() + 1
         };
 
-        let mut result = IntPolynomial::zeros( maxdeg );
+        let mut result = Self::zeros( maxdeg );
 
         for i in 0 .. maxdeg {
             if i < self.degree() + 1 {
@@ -355,7 +354,7 @@ impl std::ops::Add for IntPolynomial {
 }
 
 impl std::cmp::PartialEq for IntPolynomial {
-    fn eq( &self, other: &IntPolynomial) -> bool {
+    fn eq( &self, other: &Self) -> bool {
         if self.degree() != other.degree() {
             return false;
         }
@@ -381,7 +380,7 @@ impl IntoIterator for IntPolynomial {
     type IntoIter = IntPolynomialIterator;
 
     fn into_iter(self) -> Self::IntoIter {
-        IntPolynomialIterator {
+        Self::IntoIter {
             polynomial: self,
             index: 0,
         }
