@@ -133,7 +133,7 @@ impl<T> Polynomial<T> where T: Numeral {
     
     /// multiply self by rhs returning a new polynomial.  Uses gradeschool multiplication
     /// which is slow unless degree is really small
-    pub fn gradeschool_mul( &self, rhs: &Polynomial<T> ) -> Polynomial<T> {
+    pub fn gradeschool_mul( &self, rhs: &Self ) -> Self {
         let ldegree = self.degree();
         let rdegree = rhs.degree();
         let outdegree = ldegree + rdegree;
@@ -326,7 +326,7 @@ impl<T> std::ops::IndexMut<usize> for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::ops::AddAssign for Polynomial<T> where T: Numeral {
-    fn add_assign( &mut self, rhs: Polynomial<T> ) {
+    fn add_assign( &mut self, rhs: Self ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {
                 self[idx] += e;
@@ -340,9 +340,9 @@ impl<T> std::ops::AddAssign for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
-    type Output = Polynomial<T>;
+    type Output = Self;
 
-    fn add ( self, rhs: Polynomial<T> ) -> Polynomial<T> {
+    fn add ( self, rhs: Self ) -> Self::Output {
         let maxdeg = if self.degree() > rhs.degree() { 
             self.degree() + 1
         } else {
@@ -365,7 +365,7 @@ impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral {
-    fn sub_assign( &mut self, rhs: Polynomial<T> ) {
+    fn sub_assign( &mut self, rhs: Self ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {
                 self[idx] -= e;
@@ -379,16 +379,16 @@ impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::ops::Sub for Polynomial<T> where T: Numeral {
-    type Output = Polynomial<T>;
+    type Output = Self;
 
-    fn sub ( self, rhs: Polynomial<T> ) -> Polynomial<T> {
+    fn sub ( self, rhs: Self ) -> Self::Output {
         let maxdeg = if self.degree() > rhs.degree() { 
             self.degree() + 1
         } else {
             rhs.degree() + 1
         };
 
-        let mut result = Polynomial::<T>::zeros( maxdeg );
+        let mut result = Self::zeros( maxdeg );
 
         for i in 0 .. maxdeg {
             if i < self.degree() + 1 {
@@ -404,7 +404,7 @@ impl<T> std::ops::Sub for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
-    fn eq( &self, other: &Polynomial<T>) -> bool {
+    fn eq( &self, other: &Self) -> bool {
         if self.degree() != other.degree() {
             return false;
         }
@@ -427,7 +427,7 @@ impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
 //////////////////////////////////////////////////////////////
 
 impl<T> AlmostEq for Polynomial<T> where T: Numeral + AlmostEq {
-    fn almost_eq( &self, other: &Polynomial<T> ) -> bool {
+    fn almost_eq( &self, other: &Self ) -> bool {
          if self.degree() != other.degree() {
             return false;
         }
@@ -510,7 +510,7 @@ impl<T> IntoIterator for Polynomial<T> where T: Numeral {
     type IntoIter = PolynomialIterator<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        PolynomialIterator {
+        Self::IntoIter {
             polynomial: self,
             index: 0,
         }
