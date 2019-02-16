@@ -180,8 +180,8 @@ impl<T> KaratsubaPlan<T> where T: Numeral + Neg {
         }
 
         Self::combine_chunk_to( &self.layers[0].results[0],
-                                         result, 
-                                         2usize.pow( num_layers as u32 ) );
+                                result,
+                                2usize.pow(num_layers as u32));
 
         Ok(())
     }
