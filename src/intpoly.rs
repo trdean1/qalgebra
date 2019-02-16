@@ -155,7 +155,7 @@ impl IntPolynomial {
             product = Self::unpack_rug( packed_product, bits_per, Some(degree) );
         }
 
-        return product;
+        product
     }
 
     /// Find the maximum number of bits each coefficient of the product of self and rhs
