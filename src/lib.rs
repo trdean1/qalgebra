@@ -35,8 +35,8 @@ pub struct Polynomial<T: Numeral> {
 
 impl<T> Polynomial<T> where T: Numeral {
     /// Create polynomial from vector.  v[0] is degree zero term
-    pub fn from_vec(v: &Vec<T>) -> Polynomial<T> {
-        Polynomial { 
+    pub fn from_vec(v: &Vec<T>) -> Self {
+        Self {
             coefficients : v.clone()
         }
     }
@@ -44,18 +44,18 @@ impl<T> Polynomial<T> where T: Numeral {
 
     /// Create a polynomial with an empty coefficient vector that has
     /// space allocated for n coefficients
-    pub fn with_capacity( n: usize ) -> Polynomial<T> {
+    pub fn with_capacity( n: usize ) -> Self {
         let v = Vec::with_capacity( n );
-        Polynomial {
+        Self {
             coefficients : v
         }
     }
 
     
     /// Create a polynomial with all n zero coefficients
-    pub fn zeros( n: usize ) -> Polynomial<T> {
+    pub fn zeros( n: usize ) -> Self {
         let v = vec![T::zero(); n];
-        Polynomial {
+        Self {
             coefficients : v
         }
     }
@@ -71,7 +71,7 @@ impl<T> Polynomial<T> where T: Numeral {
 
     /// A 'smart' attempt at a deep copy.  Will not allocate memory
     /// if self has enough memory to copy
-    pub fn copy_from( &mut self, other: &Polynomial<T> ) {
+    pub fn copy_from( &mut self, other: &Self ) {
         self.coefficients.reserve( other.degree() + 1 );
         self.coefficients.clear();
 
@@ -113,7 +113,7 @@ impl<T> Polynomial<T> where T: Numeral {
     }
 
     /// Divide by x^n...shift down n slots and return remainder if not zero
-    pub fn xn_divide( &mut self, n: usize) -> Option<Polynomial<T>> {
+    pub fn xn_divide( &mut self, n: usize) -> Option<Self> {
         let mut remainder = vec![T::zero(); n];
         let mut has_rem = false;
         for i in 0..n {
@@ -122,7 +122,7 @@ impl<T> Polynomial<T> where T: Numeral {
         }
 
         if has_rem {
-            let mut p = Polynomial::<T>::from_vec( &remainder );
+            let mut p = Self::<T>::from_vec( &remainder );
             p.trim();
 
             return Some(p);
@@ -133,7 +133,7 @@ impl<T> Polynomial<T> where T: Numeral {
     
     /// multiply self by rhs returning a new polynomial.  Uses gradeschool multiplication
     /// which is slow unless degree is really small
-    pub fn gradeschool_mul( &self, rhs: &Polynomial<T> ) -> Polynomial<T> {
+    pub fn gradeschool_mul( &self, rhs: &Self ) -> Self {
         let ldegree = self.degree();
         let rdegree = rhs.degree();
         let outdegree = ldegree + rdegree;
@@ -148,8 +148,8 @@ impl<T> Polynomial<T> where T: Numeral {
             large = self;
         }
 
-        let mut result = Polynomial::<T>::zeros( outdegree );
-        let mut tmp = Polynomial::<T>::with_capacity( large.degree()+1 );
+        let mut result = Self::<T>::zeros( outdegree );
+        let mut tmp = Self::<T>::with_capacity( large.degree()+1 );
         for (i, c) in small.into_iter().enumerate() {
             if c != T::zero() {
                 tmp.copy_from( large );
@@ -326,7 +326,7 @@ impl<T> std::ops::IndexMut<usize> for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::ops::AddAssign for Polynomial<T> where T: Numeral {
-    fn add_assign( &mut self, rhs: Polynomial<T> ) {
+    fn add_assign( &mut self, rhs: Self ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {
                 self[idx] += e;
@@ -340,16 +340,16 @@ impl<T> std::ops::AddAssign for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
-    type Output = Polynomial<T>;
+    type Output = Self;
 
-    fn add ( self, rhs: Polynomial<T> ) -> Polynomial<T> {
+    fn add ( self, rhs: Self ) -> Self::Output {
         let maxdeg = if self.degree() > rhs.degree() { 
             self.degree() + 1
         } else {
             rhs.degree() + 1
         };
 
-        let mut result = Polynomial::<T>::zeros( maxdeg );
+        let mut result = Self::<T>::zeros( maxdeg );
 
         for i in 0 .. maxdeg {
             if i < self.degree() + 1 {
@@ -365,7 +365,7 @@ impl<T> std::ops::Add for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral {
-    fn sub_assign( &mut self, rhs: Polynomial<T> ) {
+    fn sub_assign( &mut self, rhs: Self ) {
         for (idx, e) in rhs.into_iter().enumerate() {
             if idx < self.coefficients.len() {
                 self[idx] -= e;
@@ -379,16 +379,12 @@ impl<T> std::ops::SubAssign for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::ops::Sub for Polynomial<T> where T: Numeral {
-    type Output = Polynomial<T>;
+    type Output = Self;
 
-    fn sub ( self, rhs: Polynomial<T> ) -> Polynomial<T> {
-        let maxdeg = if self.degree() > rhs.degree() { 
-            self.degree() + 1
-        } else {
-            rhs.degree() + 1
-        };
+    fn sub ( self, rhs: Self ) -> Self::Output {
+        let maxdeg = self.degree().max( rhs.degree() ) + 1;
 
-        let mut result = Polynomial::<T>::zeros( maxdeg );
+        let mut result = Self::zeros( maxdeg );
 
         for i in 0 .. maxdeg {
             if i < self.degree() + 1 {
@@ -404,7 +400,7 @@ impl<T> std::ops::Sub for Polynomial<T> where T: Numeral {
 }
 
 impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
-    fn eq( &self, other: &Polynomial<T>) -> bool {
+    fn eq( &self, other: &Self) -> bool {
         if self.degree() != other.degree() {
             return false;
         }
@@ -427,7 +423,7 @@ impl<T> std::cmp::PartialEq for Polynomial<T> where T: Numeral {
 //////////////////////////////////////////////////////////////
 
 impl<T> AlmostEq for Polynomial<T> where T: Numeral + AlmostEq {
-    fn almost_eq( &self, other: &Polynomial<T> ) -> bool {
+    fn almost_eq( &self, other: &Self ) -> bool {
          if self.degree() != other.degree() {
             return false;
         }
@@ -442,7 +438,7 @@ impl<T> AlmostEq for Polynomial<T> where T: Numeral + AlmostEq {
 }
 
 impl AlmostEq for Polynomial<f32>  {
-    fn almost_eq( &self, other: &Polynomial<f32> ) -> bool {
+    fn almost_eq( &self, other: &Self ) -> bool {
          if self.degree() != other.degree() {
             return false;
         }
@@ -457,7 +453,7 @@ impl AlmostEq for Polynomial<f32>  {
 }
 
 impl AlmostEq for Polynomial<f64>  {
-    fn almost_eq( &self, other: &Polynomial<f64> ) -> bool {
+    fn almost_eq( &self, other: &Self ) -> bool {
          if self.degree() != other.degree() {
             return false;
         }
@@ -510,7 +506,7 @@ impl<T> IntoIterator for Polynomial<T> where T: Numeral {
     type IntoIter = PolynomialIterator<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        PolynomialIterator {
+        Self::IntoIter {
             polynomial: self,
             index: 0,
         }
@@ -522,7 +518,7 @@ impl<'a, T> IntoIterator for &'a Polynomial<T> where T: 'a + Numeral {
     type IntoIter = RefPolynomialIterator<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        RefPolynomialIterator {
+        Self::IntoIter {
             polynomial: self,
             index: 0,
         }

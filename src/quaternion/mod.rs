@@ -24,15 +24,15 @@ pub struct Quaternion<T: Numeral + Signed>{
 
 impl<T> Quaternion<T> where T: Numeral + Signed {
     pub fn from_vals( a: T, b: T, c: T, d: T ) 
-        -> Quaternion<T> {
-        Quaternion{ 
+        -> Self {
+        Self {
            a, b, c, d 
         }
     }
 
     pub fn from_vec( x: &Vec<T> )
-        -> Quaternion<T> {
-        Quaternion {
+        -> Self {
+        Self {
             a: x[0],
             b: x[1],
             c: x[2],
@@ -46,8 +46,8 @@ impl<T> Quaternion<T> where T: Numeral + Signed {
 }
 
 impl<T> Zero for Quaternion<T> where T: Numeral + Signed {
-    fn zero() -> Quaternion<T> {
-        Quaternion {
+    fn zero() -> Self {
+        Self {
             a: T::zero(),
             b: T::zero(),
             c: T::zero(),
@@ -66,8 +66,8 @@ impl<T> Zero for Quaternion<T> where T: Numeral + Signed {
 /////////////////////////////////////////////////////////////////
 
 impl<T> One for Quaternion<T> where T: Numeral + Signed {
-    fn one() -> Quaternion<T> {
-        Quaternion {
+    fn one() -> Self {
+        Self {
             a: T::one(),
             b: T::zero(),
             c: T::zero(),
@@ -82,7 +82,7 @@ impl<T> One for Quaternion<T> where T: Numeral + Signed {
 }
 
 impl<T> std::cmp::PartialEq for Quaternion<T> where T: Numeral + Signed {
-    fn eq( &self, other: &Quaternion<T>) -> bool {
+    fn eq( &self, other: &Self ) -> bool {
         self.a == other.a && self.b == other.b &&
         self.c == other.c && self.d == other.d
     }
@@ -91,13 +91,9 @@ impl<T> std::cmp::PartialEq for Quaternion<T> where T: Numeral + Signed {
 //Consider overloading this for different types...i.e. accept lower
 //precision for f32 vs f64
 impl<T> AlmostEq for Quaternion<T> where T: Numeral + ToPrimitive + Signed {
-    fn almost_eq( &self, other: &Quaternion<T> ) -> bool {
+    fn almost_eq( &self, other: &Self ) -> bool {
         let norm_diff = (*self - *other).norm();
-        if norm_diff < 1e-5 {
-            return true;
-        } else {
-            return false;
-        }
+         norm_diff < 1e-5
     }
 }
 
@@ -185,8 +181,8 @@ trait Conjugate<T> {
 }
 
 impl<T> Conjugate<T> for Quaternion<T> where T: Numeral + Signed {
-    fn conjugate( self ) -> Quaternion<T> {
-        Quaternion {
+    fn conjugate( self ) -> Self {
+        Self {
             a:  self.a,
             b: -self.b,
             c: -self.c,
@@ -198,11 +194,11 @@ impl<T> Conjugate<T> for Quaternion<T> where T: Numeral + Signed {
 impl<T> std::ops::Neg for Quaternion<T> where T: Numeral + Signed + 
                                                  std::ops::Neg + 
                                                  std::ops::Neg<Output=T> {
-    type Output = Quaternion<T>;
+    type Output = Self;
 
     #[inline(always)]
-    fn neg(self) -> Quaternion<T> {
-        Quaternion {
+    fn neg(self) -> Self::Output {
+        Self {
             a: -self.a,
             b: -self.b,
             c: -self.c,
@@ -216,10 +212,10 @@ impl<T> std::ops::Neg for Quaternion<T> where T: Numeral + Signed +
 /////////////////////////////////////////////////////////////////
 
 impl<T> std::ops::Add for Quaternion<T> where T: Numeral + Signed {
-    type Output = Quaternion<T>;
+    type Output = Self;
 
-    fn add(self, rhs: Quaternion<T>) -> Quaternion<T> {
-        Quaternion {
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
             a: self.a + rhs.a,
             b: self.b + rhs.b,
             c: self.c + rhs.c,
@@ -229,16 +225,16 @@ impl<T> std::ops::Add for Quaternion<T> where T: Numeral + Signed {
 }
 
 impl<T> std::ops::AddAssign for Quaternion<T> where T: Numeral + Signed {
-    fn add_assign(&mut self, rhs: Quaternion<T>) {
+    fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
 impl<T> std::ops::Sub for Quaternion<T> where T: Numeral + Signed {
-    type Output = Quaternion<T>;
+    type Output = Self;
 
-    fn sub(self, rhs: Quaternion<T>) -> Quaternion<T> {
-        Quaternion {
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
             a: self.a - rhs.a,
             b: self.b - rhs.b,
             c: self.c - rhs.c,
@@ -248,21 +244,21 @@ impl<T> std::ops::Sub for Quaternion<T> where T: Numeral + Signed {
 }
 
 impl<T> std::ops::SubAssign for Quaternion<T> where T: Numeral + Signed {
-    fn sub_assign(&mut self, rhs: Quaternion<T>) {
+    fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
 impl<T> std::ops::Mul for Quaternion<T> where T: Numeral + Signed {
-    type Output = Quaternion<T>;
+    type Output = Self;
 
-    default fn mul( self, rhs: Quaternion<T> ) -> Quaternion<T> {
+    default fn mul( self, rhs: Self ) -> Self {
     	let a = self.a * rhs.a - self.b * rhs.b - self.c * rhs.c - self.d * rhs.d;
 	    let b = self.a * rhs.b + self.b * rhs.a + self.c * rhs.d - self.d * rhs.c;
 	    let c = self.a * rhs.c - self.b * rhs.d + self.c * rhs.a + self.d * rhs.b;
 	    let d = self.a * rhs.d + self.b * rhs.c - self.c * rhs.b + self.d * rhs.a;
 
-        Quaternion {
+        Self {
             a, b, c, d 
         }
     }
@@ -272,7 +268,7 @@ impl<T> std::ops::Mul for Quaternion<T> where T: Numeral + Signed {
 impl std::ops::Mul for Quaternion<f32> {
 
     #[inline(always)]
-    default fn mul(self, rhs: Quaternion<f32>) -> Quaternion<f32> {
+    default fn mul(self, rhs: Self) -> Self {
         let unpacked: (f32, f32, f32, f32);
         unsafe {
             let a = _mm_set_ps( self.d, self.c, self.b, self.a );
@@ -296,7 +292,7 @@ impl std::ops::Mul for Quaternion<f32> {
             unpacked = std::mem::transmute( res );
         }
 
-        Quaternion {
+        Self {
             a: unpacked.0,
             b: unpacked.1,
             c: unpacked.2,
@@ -306,7 +302,7 @@ impl std::ops::Mul for Quaternion<f32> {
 }
 
 impl<T> std::ops::MulAssign for Quaternion<T> where  T: Numeral + Signed {
-    fn mul_assign( &mut self, rhs: Quaternion<T> ) {
+    fn mul_assign( &mut self, rhs: Self ) {
         *self = *self * rhs;
     }
 }
@@ -319,9 +315,9 @@ impl<T> std::ops::MulAssign for Quaternion<T> where  T: Numeral + Signed {
 //Will override for floats anyways.  
 //Quaternions over Z+ are certainly not closed so I think requiring signed is fine
 impl<T> std::ops::Div for Quaternion<T> where T: Numeral + Signed {
-    type Output = Quaternion<T>;
+    type Output = Self;
 
-    default fn div( self, rhs: Quaternion<T> ) -> Quaternion<T> {
+    default fn div( self, rhs: Self ) -> Self {
         let rhs_conj = rhs.clone().conjugate();
 
         let res = self * rhs_conj;
@@ -329,7 +325,7 @@ impl<T> std::ops::Div for Quaternion<T> where T: Numeral + Signed {
         let norm_sq = rhs.a * rhs.a + rhs.b * rhs.b +
                       rhs.c * rhs.c + rhs.d * rhs.d;
 
-        Quaternion {
+        Self {
             a : res.a / norm_sq,
             b : res.b / norm_sq,
             c : res.c / norm_sq,
@@ -343,7 +339,7 @@ impl<T> std::ops::Div for Quaternion<T> where T: Numeral + Signed {
 #[cfg(target_arch="x86_64")]
 impl std::ops::Div for Quaternion<f32> {
     #[inline(always)]
-    default fn div( self, rhs: Quaternion<f32> ) -> Quaternion<f32> {
+    default fn div( self, rhs: Self ) -> Self {
         let unpacked: (f32, f32, f32, f32);
         unsafe {
             let a = _mm_set_ps( self.d, self.c, self.b, self.a );
@@ -386,7 +382,7 @@ impl std::ops::Div for Quaternion<f32> {
             unpacked = std::mem::transmute( res );
         }
 
-        Quaternion {
+        Self {
             a: unpacked.0,
             b: unpacked.1,
             c: unpacked.2,
@@ -396,7 +392,7 @@ impl std::ops::Div for Quaternion<f32> {
 }
 
 impl<T> std::ops::DivAssign for Quaternion<T> where T: Numeral + Signed {
-    fn div_assign(&mut self, rhs: Quaternion<T>) {
+    fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
 }
@@ -404,22 +400,22 @@ impl<T> std::ops::DivAssign for Quaternion<T> where T: Numeral + Signed {
 // Attempts to identify the quaternion equivalent of a gaussian integer
 // whose product with `modulus` is closest to `self`.
 impl<T> std::ops::Rem for Quaternion<T> where T: Numeral + Signed {
-    type Output = Quaternion<T>;
+    type Output = Self;
 
     #[inline]
-    fn rem(self, modulus: Quaternion<T>) -> Self {
-        let Quaternion { a, b, c, d } = self.clone() / modulus.clone();
+    fn rem(self, modulus: Self) -> Self {
+        let Self { a, b, c, d } = self.clone() / modulus.clone();
         // This is the gaussian integer corresponding to the true ratio
         // rounded towards zero.
         let (a0, b0, c0, d0) = (a.clone() - a % T::one(), b.clone() - b % T::one(), 
                                 c.clone() - c % T::one(), d.clone() - d % T::one() );
 
-        self - modulus * Quaternion::from_vals(a0, b0, c0, d0)
+        self - modulus * Self::from_vals(a0, b0, c0, d0)
     }
 }
 
 impl<T> std::ops::RemAssign for Quaternion<T> where T: Numeral + Signed {
-    fn rem_assign( &mut self, modulus: Quaternion<T> ) {
+    fn rem_assign( &mut self, modulus: Self ) {
         *self = *self % modulus;
     }
 }
